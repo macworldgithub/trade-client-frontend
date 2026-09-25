@@ -1,10 +1,23 @@
+// ─── Roles (simplified: 3 roles) ──────────────────────────────────────
+export type Role = 'trade_partner' | 'controller' | 'admin';
+
+export const ROLES: Record<Role, { label: string; description: string }> = {
+  trade_partner: { label: 'Trade Partner', description: 'Workshop / Fleet — search, order, track' },
+  controller: { label: 'Controller', description: 'Counter staff & store managers — queue, pick, exceptions, store dashboard' },
+  admin: { label: 'Administrator', description: 'Group ops, C-suite, IT — full access, network dashboards, rooftop management' },
+};
+
+/** Check helpers */
+export const isInternal = (role?: string) => role === 'controller' || role === 'admin';
+export const isAdmin = (role?: string) => role === 'admin';
+
 // ─── Auth / User ──────────────────────────────────────────────────────
 export type User = {
   _id?: string;
   id?: string;
   fullName?: string;
   email?: string;
-  role?: string;
+  role?: Role | string;
   rooftopId?: string;
   tradeAccountId?: string;
   creditHold?: boolean;

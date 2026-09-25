@@ -4,18 +4,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design Tokens ─── */
 :root {
   --ink: #0f172a;
   --navy: #090e1a;
   --muted: #64748b;
   --line: #e2e8f0;
   --mist: #f8fafc;
-  --brand-red: #ef2029;
+  --brand: #dc2626;
+  --brand-light: #fef2f2;
+  --radius: 12px;
+  --radius-lg: 16px;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -24,63 +26,47 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01';
 }
 
 h1, h2, h3, .font-heading {
   font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
 }
 
-button, input, select, textarea {
-  font: inherit;
-}
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
 
-button {
-  cursor: pointer;
-}
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
+/* ─── Dot Grid Paper ─── */
 .grid-paper {
-  background-image:
-    radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px);
   background-size: 24px 24px;
 }
-
 .dark-grid-paper {
-  background-image:
-    radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
-/* Glassmorphism effects */
+/* ─── Glassmorphism ─── */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
 }
-
 .glass-dark {
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(15, 23, 42, 0.8);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Skeleton shimmer */
+/* ─── Skeleton Shimmer ─── */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -89,51 +75,86 @@ button {
   background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in {
-  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes pulseSlow {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(1.05); }
-}
-.pulse-slow {
-  animation: pulseSlow 2.5s ease-in-out infinite;
-}
-
+/* ─── Component Layer ─── */
 @layer components {
+  /* Cards — clean white with subtle elevation */
   .card {
-    @apply rounded-2xl bg-white border border-slate-200/80 shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300;
+    @apply rounded-2xl bg-white border border-slate-200/60 shadow-card transition-all duration-200;
   }
+  .card:hover {
+    @apply shadow-card-hover border-slate-200;
+  }
+
+  /* Buttons — tight, corporate styling */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
+           text-sm font-semibold transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-offset-2
+           active:scale-[0.98];
   }
   .btn-primary {
-    @apply btn bg-[#ef2029] text-white hover:bg-[#dc1922] active:scale-[0.98] shadow-sm hover:shadow-red-500/25 focus:ring-red-500;
+    @apply btn bg-brand-600 text-white hover:bg-brand-700
+           shadow-sm hover:shadow-md focus:ring-brand-500;
   }
   .btn-soft {
-    @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200 active:scale-[0.98] focus:ring-slate-300;
+    @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-300;
   }
   .btn-outline {
-    @apply btn border border-slate-300 text-slate-700 hover:bg-slate-50 active:scale-[0.98] focus:ring-slate-400;
+    @apply btn border border-slate-200 text-slate-700 hover:bg-slate-50 focus:ring-slate-400;
   }
   .btn-danger {
-    @apply btn bg-red-50 text-red-600 hover:bg-red-100 active:scale-[0.98] focus:ring-red-300;
+    @apply btn bg-brand-50 text-brand-700 hover:bg-brand-100 focus:ring-brand-300;
   }
+  .btn-ghost {
+    @apply btn text-slate-500 hover:text-slate-900 hover:bg-slate-100 focus:ring-slate-300;
+  }
+
+  /* Form Fields */
   .field {
     @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none
-           transition-all duration-200
-           focus:border-red-500 focus:ring-2 focus:ring-red-500/10
+           transition-all duration-150
+           focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10
            placeholder:text-slate-400 text-slate-900;
   }
+
+  /* Eyebrow Labels */
   .eyebrow {
-    @apply text-[11px] font-bold uppercase tracking-[.14em] text-slate-500;
+    @apply text-[11px] font-bold uppercase tracking-[.14em] text-slate-400;
+  }
+
+  /* Status Badges — monochrome except for critical states */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wide;
+  }
+  .badge-default {
+    @apply badge bg-slate-100 text-slate-600 border border-slate-200;
+  }
+  .badge-active {
+    @apply badge bg-brand-50 text-brand-700 border border-brand-200;
+  }
+  .badge-success {
+    @apply badge bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  .badge-warning {
+    @apply badge bg-amber-50 text-amber-700 border border-amber-200;
+  }
+  .badge-error {
+    @apply badge bg-red-50 text-red-700 border border-red-200;
+  }
+
+  /* Table Styles */
+  .table-header {
+    @apply text-[10px] font-bold uppercase tracking-wider text-slate-400;
+  }
+  .table-row {
+    @apply hover:bg-slate-50/60 transition-colors;
+  }
+
+  /* Section Headers */
+  .section-title {
+    @apply text-lg font-bold text-slate-900 tracking-tight;
   }
 }

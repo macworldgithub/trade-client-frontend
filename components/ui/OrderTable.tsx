@@ -16,44 +16,44 @@ export default function OrderTable({ orders }: Props) {
     );
   }
 
-  const stateColor = (state?: string) => {
+  const stateBadge = (state?: string) => {
     const s = (state || "").toUpperCase();
-    if (s.includes("EXCEPTION") || s.includes("CANCELLED"))
-      return "bg-orange-50 text-coral";
+    if (s.includes("EXCEPTION") || s.includes("CANCELLED") || s.includes("BACKORDER"))
+      return "badge-red";
     if (s.includes("DELIVERED") || s.includes("PICKED") || s.includes("READY"))
-      return "bg-emerald-50 text-emerald-600";
-    return "bg-teal/10 text-teal";
+      return "badge-green";
+    if (s.includes("ALLOCATED") || s.includes("TRANSIT") || s.includes("PICKING"))
+      return "badge-blue";
+    return "badge-neutral";
   };
 
   return (
-    <div className="mt-5 overflow-x-auto">
+    <div className="mt-4 overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <thead className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
           <tr>
-            <th className="pb-3">Order</th>
-            <th className="pb-3">Status</th>
-            <th className="pb-3">Date</th>
-            <th className="pb-3 text-right">Total</th>
+            <th className="pb-3 font-semibold">Order</th>
+            <th className="pb-3 font-semibold">Status</th>
+            <th className="pb-3 font-semibold">Date</th>
+            <th className="pb-3 font-semibold text-right">Total</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {orders.map((o, i) => (
             <tr
               key={o._id || i}
-              className="transition-colors hover:bg-slate-50/50"
+              className="transition-colors hover:bg-slate-50/80"
             >
-              <td className="py-4 font-bold text-navy">
+              <td className="py-3.5 font-bold text-slate-900 font-mono text-xs">
                 {o.orderNumber || o._id?.slice(-8) || "—"}
               </td>
-              <td className="py-4">
-                <span
-                  className={`rounded-md px-2 py-1 text-[11px] font-bold ${stateColor(o.state)}`}
-                >
+              <td className="py-3.5">
+                <span className={stateBadge(o.state)}>
                   {(o.state || "UNKNOWN").replaceAll("_", " ")}
                 </span>
               </td>
-              <td className="py-4 text-slate-400">{shortDate(o.createdAt)}</td>
-              <td className="py-4 text-right font-bold text-navy">
+              <td className="py-3.5 text-xs text-slate-500">{shortDate(o.createdAt)}</td>
+              <td className="py-3.5 text-right font-bold text-slate-900 font-mono text-xs">
                 {money(o.totalCents)}
               </td>
             </tr>

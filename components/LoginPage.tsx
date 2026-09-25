@@ -103,7 +103,7 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
               </span>
             </div>
             <p className="text-[10px] font-semibold tracking-[0.2em] text-slate-400">
-              MOTOR GROUP · AFTER化学 / PARTS
+              MOTOR GROUP · AFTERSALES / PARTS
             </p>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
 
             <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 backdrop-blur-sm">
               <div className="flex items-center gap-2.5 text-slate-200 font-semibold text-sm">
-                <Layers size={17} className="text-cyan-400" />
+                <Layers size={17} className="text-slate-200" />
                 PartsCheck Auto-Quote
               </div>
               <p className="mt-1 text-xs text-slate-400">
@@ -237,9 +237,8 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                     className="field bg-white"
                   >
                     <option value="trade_partner">Trade Partner (Workshop / Fleet)</option>
-                    <option value="parts_controller">Parts Controller (Counter Desk)</option>
-                    <option value="store_manager">Store Manager (Precinct)</option>
-                    <option value="csuites">C-Suite / Group Ops</option>
+                    <option value="controller">Parts Controller (Counter Desk & Store)</option>
+                    <option value="admin">Group Administrator / Operations</option>
                   </select>
                 </div>
 

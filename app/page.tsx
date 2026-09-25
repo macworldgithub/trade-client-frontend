@@ -34,7 +34,7 @@ function AppContent() {
     if (!token) return;
     setDataLoading(true);
     try {
-      const canReadGroupDashboard = ["csuites", "group_admin", "store_manager"].includes(
+      const canReadGroupDashboard = ["admin", "controller", "csuites", "group_admin", "store_manager"].includes(
         (user?.role || "").toLowerCase()
       );
       const [gRes, rRes, oRes] = await Promise.allSettled([
@@ -151,7 +151,7 @@ function AppContent() {
               selectedRooftop={selectedRooftop}
               onSelectRooftop={setSelectedRooftop}
               onRefreshNeeded={() => setRefreshTrigger((x) => x + 1)}
-              canManageRooftops={(user?.role || "").toLowerCase() === "group_admin"}
+              canManageRooftops={["admin", "group_admin"].includes((user?.role || "").toLowerCase())}
             />
           )}
 

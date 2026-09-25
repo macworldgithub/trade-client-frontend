@@ -64,7 +64,7 @@ export default function PartsCheckPage({
   const fetchPartsCheck = async () => {
     setLoading(true);
     try {
-      const canReadGroupPartsCheck = ["csuites", "group_admin", "store_manager"].includes(
+      const canReadGroupPartsCheck = ["admin", "controller", "csuites", "group_admin", "store_manager"].includes(
         (user?.role || "").toLowerCase()
       );
       const [sumRes, inboxRes] = await Promise.allSettled([
