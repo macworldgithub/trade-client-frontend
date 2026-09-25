@@ -66,14 +66,13 @@ export default function Sidebar({
 
       {/* Sidebar Aside */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[270px] flex-col bg-slate-950 text-white border-r border-slate-800 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-          open ? "translate-x-0 shadow-2xl" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-[270px] flex-col bg-slate-950 text-white border-r border-slate-800 transition-transform duration-300 ease-in-out lg:translate-x-0 ${open ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+          }`}
       >
         {/* Brand Header */}
         <div className="flex items-center justify-between h-[76px] px-5 border-b border-slate-800/80 bg-slate-950">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-red-600 to-red-500 text-white font-black text-lg shadow-md shadow-red-600/30">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-red-800 to-red-500 text-white font-black text-lg shadow-md shadow-red-600/30">
               B
             </div>
             <div>
@@ -98,25 +97,6 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* User Quick Info Badge */}
-        {user && (
-          <div className="px-4 py-3 border-b border-slate-800/60 bg-slate-900/40">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-bold">
-                {(user.fullName || user.email || "U").slice(0, 1).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-white truncate">
-                  {user.fullName || user.email}
-                </p>
-                <p className="text-[10px] text-slate-400 truncate">
-                  {user.role?.replaceAll("_", " ") || "Trade Partner"}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Navigation list */}
         <div className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
@@ -135,11 +115,10 @@ export default function Sidebar({
                     onClose();
                   }
                 }}
-                className={`group flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
-                  isActive
-                    ? "bg-red-600 text-white shadow-md shadow-red-600/25 ring-1 ring-red-500"
-                    : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
-                }`}
+                className={`group flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${isActive
+                  ? "bg-red-600 text-white shadow-md shadow-red-600/25 ring-1 ring-red-500"
+                  : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
+                  }`}
               >
                 <Icon
                   size={18}

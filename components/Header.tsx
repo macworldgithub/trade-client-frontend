@@ -84,15 +84,15 @@ export default function Header({
                 {(rooftops.length > 0
                   ? rooftops
                   : [
-                      { rooftopId: "ROOFTOP-DANDENONG", name: "Dandenong Precinct", suburb: "25 Lonsdale St" },
-                      { rooftopId: "ROOFTOP-CHELTENHAM", name: "Cheltenham / Southland", suburb: "1178 Nepean Hwy" },
-                      { rooftopId: "ROOFTOP-CRANBOURNE", name: "Cranbourne Precinct", suburb: "180 Sth Gippsland" },
-                      { rooftopId: "ROOFTOP-BERWICK", name: "Berwick Precinct", suburb: "34 Kangan Dr" },
-                      { rooftopId: "ROOFTOP-SOUTH-MORANG", name: "South Morang", suburb: "Oleander / McDonalds Rd" },
-                      { rooftopId: "ROOFTOP-WONTHAGGI", name: "Wonthaggi", suburb: "Bass Hwy" },
-                      { rooftopId: "ROOFTOP-LEONGATHA", name: "Leongatha", suburb: "Hughes St" },
-                      { rooftopId: "ROOFTOP-BALLARAT", name: "Ballarat", suburb: "Mair St" },
-                    ]
+                    { rooftopId: "ROOFTOP-DANDENONG", name: "Dandenong Precinct", suburb: "25 Lonsdale St" },
+                    { rooftopId: "ROOFTOP-CHELTENHAM", name: "Cheltenham / Southland", suburb: "1178 Nepean Hwy" },
+                    { rooftopId: "ROOFTOP-CRANBOURNE", name: "Cranbourne Precinct", suburb: "180 Sth Gippsland" },
+                    { rooftopId: "ROOFTOP-BERWICK", name: "Berwick Precinct", suburb: "34 Kangan Dr" },
+                    { rooftopId: "ROOFTOP-SOUTH-MORANG", name: "South Morang", suburb: "Oleander / McDonalds Rd" },
+                    { rooftopId: "ROOFTOP-WONTHAGGI", name: "Wonthaggi", suburb: "Bass Hwy" },
+                    { rooftopId: "ROOFTOP-LEONGATHA", name: "Leongatha", suburb: "Hughes St" },
+                    { rooftopId: "ROOFTOP-BALLARAT", name: "Ballarat", suburb: "Mair St" },
+                  ]
                 ).map((r) => (
                   <button
                     key={r.rooftopId}
@@ -100,9 +100,8 @@ export default function Header({
                       if (onSelectRooftop) onSelectRooftop(r.rooftopId);
                       setShowRooftopDropdown(false);
                     }}
-                    className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 transition-colors ${
-                      selectedRooftop === r.rooftopId ? "font-bold text-red-600 bg-red-50/50" : "text-slate-700"
-                    }`}
+                    className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 transition-colors ${selectedRooftop === r.rooftopId ? "font-bold text-red-600 bg-red-50/50" : "text-slate-700"
+                      }`}
                   >
                     <div>
                       <p className="font-semibold">{r.name}</p>
@@ -124,15 +123,6 @@ export default function Header({
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
           Simulation Mode
         </span>
-
-        {/* Notification indicator */}
-        <button
-          className="relative p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-          aria-label="View notifications"
-        >
-          <Bell size={19} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-600 ring-2 ring-white" />
-        </button>
 
         <div className="h-6 w-px bg-slate-200 hidden sm:block" />
 
