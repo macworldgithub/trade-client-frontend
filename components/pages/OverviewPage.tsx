@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   ShoppingCart,
@@ -16,9 +16,18 @@ import {
   Truck,
   CheckCircle,
   TrendingUp,
+  Download,
 } from "lucide-react";
-import type { GroupData, Rooftop, Order } from "../../lib/types";
+import type {
+  GroupData,
+  Rooftop,
+  Order,
+  StoreDashboard,
+  StorePartsCheckDashboard,
+  WeeklyExport,
+} from "../../lib/types";
 import { money, shortDate } from "../../lib/api";
+import { backendApi } from "../../lib/backend-api";
 import StatCard from "../ui/StatCard";
 import EmptyState from "../ui/EmptyState";
 import type { NavKey } from "../Sidebar";
@@ -41,6 +50,10 @@ export default function OverviewPage({
   const n = group?.networkOverview;
   const f = group?.fulfillmentPipeline || {};
   const a = group?.accountsPortfolio;
+  const [storeDashboard, setStoreDashboard] = useState<StoreDashboard | null>(null);
+  const [storePartsCheck, setStorePartsCheck] = useState<StorePartsCheckDashboard | null>(null);
+  const [weeklyExport, setWeeklyExport] = useState<WeeklyExport | null>(null);
+  const [storeLoading, setStoreLoading] = useState(false);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -80,6 +93,50 @@ export default function OverviewPage({
       orderCount: 0,
       activeExceptions: 0,
     }));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStoreDashboard() {
+      setStoreLoading(true);
+      try {
+        const params = new URLSearchParams({
+          rooftopId: selectedRooftop,
+          format: "json",
+        });
+        const [storeRes, partsCheckRes, exportRes] = await Promise.allSettled([
+          backendApi.dashboard.store(selectedRooftop),
+          backendApi.dashboard.storePartsCheck(selectedRooftop),
+          backendApi.dashboard.weeklyExport(params.toString()),
+        ]);
+
+        if (cancelled) return;
+        setStoreDashboard(
+          storeRes.status === "fulfilled" ? (storeRes.value as StoreDashboard) : null
+        );
+        setStorePartsCheck(
+          partsCheckRes.status === "fulfilled"
+            ? (partsCheckRes.value as StorePartsCheckDashboard)
+            : null
+        );
+        setWeeklyExport(
+          exportRes.status === "fulfilled" ? (exportRes.value as WeeklyExport) : null
+        );
+      } finally {
+        if (!cancelled) setStoreLoading(false);
+      }
+    }
+
+    loadStoreDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRooftop]);
+
+  const storeFinancial = storeDashboard?.financialSummary;
+  const storeQueue = storeDashboard?.warehouseQueue;
+  const storeAccounts = storeDashboard?.accountsStatus;
+  const storeSla = storePartsCheck?.slaOverview;
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
@@ -276,6 +333,113 @@ export default function OverviewPage({
               </div>
             ))}
           </div>
+        </section>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
+        <section className="card p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <p className="eyebrow">Selected Precinct API</p>
+              <h2 className="text-lg font-bold text-slate-900">
+                {storeDashboard?.precinct?.name || selectedRooftop.replace("ROOFTOP-", "")}
+              </h2>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">
+              Store Dashboard
+            </span>
+          </div>
+
+          {storeLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="skeleton h-20 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">Store Revenue</p>
+                <p className="mt-2 text-lg font-black text-slate-900">
+                  {money(storeFinancial?.totalRevenueCents)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">Week Orders</p>
+                <p className="mt-2 text-lg font-black text-slate-900">
+                  {storeFinancial?.weekOrdersCount ?? 0}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">Queue</p>
+                <p className="mt-2 text-lg font-black text-slate-900">
+                  {storeQueue?.totalInQueue ?? 0}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">Credit Holds</p>
+                <p className="mt-2 text-lg font-black text-slate-900">
+                  {storeAccounts?.onCreditHold ?? 0}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-red-100 bg-red-50 p-4">
+              <p className="eyebrow text-red-600">Urgent RFQs</p>
+              <p className="mt-2 text-xl font-black text-slate-900">
+                {storeSla?.urgentExpiringWithin1Hour ?? 0}
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+              <p className="eyebrow text-emerald-700">SLA Compliance</p>
+              <p className="mt-2 text-xl font-black text-slate-900">
+                {Math.round(storeSla?.slaComplianceRatePercent ?? 100)}%
+              </p>
+            </div>
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <p className="eyebrow text-blue-700">Win Rate</p>
+              <p className="mt-2 text-xl font-black text-slate-900">
+                {Math.round(storeSla?.winRatePercent ?? 0)}%
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="card p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <p className="eyebrow">Weekly Export API</p>
+              <h2 className="text-lg font-bold text-slate-900">Management Pack</h2>
+            </div>
+            <Download size={17} className="text-slate-400" />
+          </div>
+
+          <div className="space-y-3 text-xs">
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <span className="font-semibold text-slate-500">Orders this pack</span>
+              <span className="font-black text-slate-900">
+                {weeklyExport?.financialSummary?.totalOrdersCount ?? 0}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <span className="font-semibold text-slate-500">Revenue AUD</span>
+              <span className="font-black text-slate-900">
+                ${weeklyExport?.financialSummary?.totalRevenueAud ?? "0.00"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <span className="font-semibold text-slate-500">PartsCheck RFQs</span>
+              <span className="font-black text-slate-900">
+                {weeklyExport?.partscheckSummary?.totalRfqs ?? 0}
+              </span>
+            </div>
+          </div>
+
+          <p className="mt-4 text-[11px] font-medium text-slate-400">
+            Scope: {weeklyExport?.period?.rooftopId || selectedRooftop}
+          </p>
         </section>
       </div>
 

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { backendApi } from "../../lib/backend-api";
 import { money, shortDate } from "../../lib/api";
-import type { TradeAccount } from "../../lib/types";
+import type { AccountSpend, TradeAccount } from "../../lib/types";
 import PageTitle from "../ui/PageTitle";
 import EmptyState from "../ui/EmptyState";
 
@@ -32,6 +32,10 @@ export default function AccountsPage({
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [submittingHold, setSubmittingHold] = useState<string | null>(null);
+  const [submittingOverdue, setSubmittingOverdue] = useState<string | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<TradeAccount | null>(null);
+  const [accountSpend, setAccountSpend] = useState<AccountSpend | null>(null);
+  const [detailLoading, setDetailLoading] = useState<string | null>(null);
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -65,6 +69,39 @@ export default function AccountsPage({
       alert(err instanceof Error ? err.message : "Failed to toggle credit hold");
     } finally {
       setSubmittingHold(null);
+    }
+  };
+
+  const handleToggleOverdue = async (accountId: string, currentOverdue: boolean) => {
+    setSubmittingOverdue(accountId);
+    try {
+      await backendApi.accounts.overdue(accountId, !currentOverdue);
+      await fetchAccounts();
+      if (selectedAccount) {
+        const detail = await backendApi.accounts.get(accountId);
+        setSelectedAccount(detail);
+      }
+      if (onRefreshNeeded) onRefreshNeeded();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to toggle overdue flag");
+    } finally {
+      setSubmittingOverdue(null);
+    }
+  };
+
+  const handleInspectAccount = async (accountId: string) => {
+    setDetailLoading(accountId);
+    try {
+      const [detail, spend] = await Promise.all([
+        backendApi.accounts.get(accountId),
+        backendApi.accounts.spend(accountId, new Date().getFullYear()),
+      ]);
+      setSelectedAccount(detail);
+      setAccountSpend(spend as AccountSpend);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to load account detail");
+    } finally {
+      setDetailLoading(null);
     }
   };
 
@@ -122,7 +159,7 @@ export default function AccountsPage({
                   <th className="pb-3">Terms</th>
                   <th className="pb-3">Current Balance</th>
                   <th className="pb-3">Credit Status</th>
-                  <th className="pb-3 text-right">Controller Action</th>
+                  <th className="pb-3 text-right">Controller Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -161,21 +198,41 @@ export default function AccountsPage({
                       )}
                     </td>
                     <td className="py-3.5 text-right">
-                      <button
-                        disabled={submittingHold === (a.accountId || a._id)}
-                        onClick={() => handleToggleCreditHold(a.accountId || a._id || "", !!a.creditHold)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
-                          a.creditHold
-                            ? "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
-                            : "bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
-                        }`}
-                      >
-                        {submittingHold === (a.accountId || a._id)
-                          ? "Saving..."
-                          : a.creditHold
-                          ? "Release Hold"
-                          : "Place Hold"}
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          disabled={detailLoading === (a.accountId || a._id)}
+                          onClick={() => handleInspectAccount(a.accountId || a._id || "")}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold transition border border-slate-200 text-slate-700 hover:bg-slate-100"
+                        >
+                          {detailLoading === (a.accountId || a._id) ? "Loading..." : "Detail"}
+                        </button>
+                        <button
+                          disabled={submittingOverdue === (a.accountId || a._id)}
+                          onClick={() => handleToggleOverdue(a.accountId || a._id || "", !!a.isOverdue)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold transition border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        >
+                          {submittingOverdue === (a.accountId || a._id)
+                            ? "Saving..."
+                            : a.isOverdue
+                            ? "Clear Overdue"
+                            : "Mark Overdue"}
+                        </button>
+                        <button
+                          disabled={submittingHold === (a.accountId || a._id)}
+                          onClick={() => handleToggleCreditHold(a.accountId || a._id || "", !!a.creditHold)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+                            a.creditHold
+                              ? "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                              : "bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                          }`}
+                        >
+                          {submittingHold === (a.accountId || a._id)
+                            ? "Saving..."
+                            : a.creditHold
+                            ? "Release Hold"
+                            : "Place Hold"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -191,6 +248,87 @@ export default function AccountsPage({
           </div>
         )}
       </div>
+
+      {selectedAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">
+                  {selectedAccount.companyName || "Trade Account"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 font-mono">
+                  {selectedAccount.accountId || selectedAccount._id}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedAccount(null);
+                  setAccountSpend(null);
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"
+              >
+                X
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">YTD Spend</p>
+                <p className="mt-2 text-lg font-black text-slate-900">
+                  {money(accountSpend?.ytdSpendCents ?? selectedAccount.ytdSpendCents)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">Orders</p>
+                <p className="mt-2 text-lg font-black text-slate-900">
+                  {accountSpend?.ytdOrderCount ?? selectedAccount.ytdOrderCount ?? 0}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">Credit Limit</p>
+                <p className="mt-2 text-lg font-black text-slate-900">
+                  {money(accountSpend?.creditLimitCents ?? selectedAccount.creditLimitCents)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">Discount</p>
+                <p className="mt-2 text-lg font-black text-slate-900">
+                  {accountSpend?.discountPercent ?? selectedAccount.discountRate ?? 0}%
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="font-bold text-slate-900">Contact</p>
+                <p className="mt-1 text-slate-500">{selectedAccount.contactName || "No contact name"}</p>
+                <p className="text-slate-500">{selectedAccount.contactEmail || selectedAccount.contactPhone || "No contact detail"}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="font-bold text-slate-900">Terms</p>
+                <p className="mt-1 text-slate-500">{selectedAccount.paymentTerms || "30 Days EOM"}</p>
+                <p className="text-slate-500">Balance: {money(accountSpend?.currentBalanceCents ?? selectedAccount.currentBalanceCents)}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => handleToggleOverdue(selectedAccount.accountId || selectedAccount._id || "", !!selectedAccount.isOverdue)}
+                className="btn-soft text-xs text-amber-700"
+              >
+                {selectedAccount.isOverdue ? "Clear Overdue" : "Mark Overdue"}
+              </button>
+              <button
+                onClick={() => handleToggleCreditHold(selectedAccount.accountId || selectedAccount._id || "", !!selectedAccount.creditHold)}
+                className="btn-primary text-xs"
+              >
+                {selectedAccount.creditHold ? "Release Credit Hold" : "Place Credit Hold"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

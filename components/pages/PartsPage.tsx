@@ -49,6 +49,8 @@ export default function PartsPage({
   // Quick Order State
   const [orderSuccess, setOrderSuccess] = useState<string | null>(null);
   const [orderingSource, setOrderingSource] = useState<string | null>(null);
+  const [partDetail, setPartDetail] = useState<Part | null>(null);
+  const [detailLoading, setDetailLoading] = useState<string | null>(null);
 
   const runSearch = async () => {
     if (search.trim().length < 2 && !franchise && !vehicle) return;
@@ -107,8 +109,9 @@ export default function PartsPage({
     try {
       await backendApi.orders.create({
         rooftopId: selectedRooftop,
+        tradeAccountId: user?.tradeAccountId || undefined,
         customerReference: `Web Order: ${source.sourceKind || "OEM"}`,
-        deliveryType: "COLLECT",
+        deliveryMethod: "COLLECTION",
         lines: [
           {
             partNumber,
@@ -126,6 +129,20 @@ export default function PartsPage({
       alert(err instanceof Error ? err.message : "Failed to place order line");
     } finally {
       setOrderingSource(null);
+    }
+  };
+
+  const handlePartDetail = async (part: Part) => {
+    const id = part._id || part.partNumber || "";
+    if (!id) return;
+    setDetailLoading(id);
+    try {
+      const detail = await backendApi.parts.get(id);
+      setPartDetail(detail);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to load part detail");
+    } finally {
+      setDetailLoading(null);
     }
   };
 
@@ -275,7 +292,7 @@ export default function PartsPage({
                     <th className="pb-3">Brand</th>
                     <th className="pb-3 hidden md:table-cell">Vehicle Fitment</th>
                     <th className="pb-3">Trade Unit</th>
-                    <th className="pb-3 text-right">Federated Sourcing</th>
+                    <th className="pb-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -306,13 +323,22 @@ export default function PartsPage({
                           : "$—"}
                       </td>
                       <td className="py-3.5 text-right">
-                        <button
-                          onClick={() => handleResolveSource(p)}
-                          className="btn-primary py-1.5 px-3 text-xs shadow-none flex items-center gap-1.5 ml-auto"
-                        >
-                          <Layers size={13} />
-                          <span>Resolve Source</span>
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handlePartDetail(p)}
+                            disabled={detailLoading === (p._id || p.partNumber)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 border border-slate-200 transition"
+                          >
+                            {detailLoading === (p._id || p.partNumber) ? "Loading..." : "Detail"}
+                          </button>
+                          <button
+                            onClick={() => handleResolveSource(p)}
+                            className="btn-primary py-1.5 px-3 text-xs shadow-none flex items-center gap-1.5"
+                          >
+                            <Layers size={13} />
+                            <span>Resolve Source</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -447,6 +473,49 @@ export default function PartsPage({
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {partDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">
+                  {partDetail.partNumber}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  {partDetail.description || "Catalogue part detail"}
+                </p>
+              </div>
+              <button
+                onClick={() => setPartDetail(null)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">Brand</p>
+                <p className="mt-1 font-black text-slate-900">{partDetail.brandCode || "GENUINE"}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">Category</p>
+                <p className="mt-1 font-black text-slate-900">{partDetail.category || "Parts"}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="eyebrow">Known Sources</p>
+                <p className="mt-1 font-black text-slate-900">{partDetail.sources?.length || 0}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+              <p className="font-bold text-slate-900 mb-1">Vehicle Fitment</p>
+              <p>{partDetail.vehicleFitment?.join(", ") || partDetail.fitment || "No fitment detail returned."}</p>
+            </div>
           </div>
         </div>
       )}

@@ -14,12 +14,15 @@ import {
   Plus,
   X,
   Search,
+  Eye,
+  DollarSign,
 } from "lucide-react";
 import { backendApi } from "../../lib/backend-api";
 import { money, shortDate } from "../../lib/api";
 import type { Rfq, PartsCheckSummary } from "../../lib/types";
 import PageTitle from "../ui/PageTitle";
 import EmptyState from "../ui/EmptyState";
+import { useAuth } from "../../lib/auth-context";
 
 type Props = {
   selectedRooftop?: string;
@@ -30,11 +33,24 @@ export default function PartsCheckPage({
   selectedRooftop = "ROOFTOP-DANDENONG",
   onRefreshNeeded,
 }: Props) {
+  const { user } = useAuth();
   const [summary, setSummary] = useState<PartsCheckSummary | null>(null);
   const [rfqs, setRfqs] = useState<Rfq[]>([]);
   const [loading, setLoading] = useState(true);
   const [quotingId, setQuotingId] = useState<string | null>(null);
   const [quoteSuccess, setQuoteSuccess] = useState<string | null>(null);
+  const [selectedRfq, setSelectedRfq] = useState<Rfq | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [overrideLine, setOverrideLine] = useState<{
+    rfqId: string;
+    lineId: string;
+    partNumber: string;
+    priceCents: number;
+    stockQty: number;
+    sourceName: string;
+    notes: string;
+  } | null>(null);
 
   // Inbound simulation modal
   const [simulateModal, setSimulateModal] = useState(false);
@@ -48,12 +64,36 @@ export default function PartsCheckPage({
   const fetchPartsCheck = async () => {
     setLoading(true);
     try {
+      const canReadGroupPartsCheck = ["csuites", "group_admin", "store_manager"].includes(
+        (user?.role || "").toLowerCase()
+      );
       const [sumRes, inboxRes] = await Promise.allSettled([
-        backendApi.dashboard.groupPartsCheck(),
+        canReadGroupPartsCheck
+          ? backendApi.dashboard.groupPartsCheck()
+          : backendApi.dashboard.storePartsCheck(selectedRooftop),
         backendApi.partsCheck.inbox(),
       ]);
 
-      if (sumRes.status === "fulfilled") setSummary(sumRes.value as PartsCheckSummary);
+      if (sumRes.status === "fulfilled") {
+        const value = sumRes.value as PartsCheckSummary & {
+          slaOverview?: {
+            totalRfqs?: number;
+            autoQuoted?: number;
+            pendingReview?: number;
+            winRatePercent?: number;
+          };
+        };
+        setSummary(
+          value.slaOverview
+            ? {
+                totalRfqs: value.slaOverview.totalRfqs,
+                autoQuotedCount: value.slaOverview.autoQuoted,
+                pendingReviewCount: value.slaOverview.pendingReview,
+                conversionRate: value.slaOverview.winRatePercent,
+              }
+            : value
+        );
+      }
       if (inboxRes.status === "fulfilled") {
         const val = inboxRes.value as { rfqs?: Rfq[]; results?: Rfq[] };
         setRfqs(val.rfqs || val.results || []);
@@ -67,7 +107,7 @@ export default function PartsCheckPage({
 
   useEffect(() => {
     fetchPartsCheck();
-  }, []);
+  }, [selectedRooftop, user?.role]);
 
   const handleTriggerQuote = async (rfqId: string) => {
     setQuotingId(rfqId);
@@ -84,6 +124,66 @@ export default function PartsCheckPage({
     }
   };
 
+  const handleInspectRfq = async (rfqId: string) => {
+    setDetailLoading(true);
+    try {
+      const detail = await backendApi.partsCheck.get(rfqId);
+      setSelectedRfq(detail as Rfq);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to load RFQ detail");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleAcceptRfq = async (rfqId: string) => {
+    setActionLoading(`accept-${rfqId}`);
+    try {
+      await backendApi.partsCheck.accept(rfqId, {
+        deliveryMethod: "DELIVERY",
+        deliveryNotes: "Accepted from Trade Client controller console",
+      });
+      setQuoteSuccess(`PartsCheck RFQ ${rfqId} accepted and converted into a TradeOrder.`);
+      setSelectedRfq(null);
+      await fetchPartsCheck();
+      if (onRefreshNeeded) onRefreshNeeded();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to accept RFQ");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleOverrideLine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!overrideLine) return;
+    setActionLoading(`override-${overrideLine.lineId}`);
+    try {
+      const updated = await backendApi.partsCheck.override(
+        overrideLine.rfqId,
+        overrideLine.lineId,
+        {
+          unitTradePriceCents: overrideLine.priceCents,
+          stockQty: overrideLine.stockQty,
+          inStock: overrideLine.stockQty > 0,
+          sourceKind: "BRANCH",
+          sourceName: overrideLine.sourceName,
+          sourceRooftopId: selectedRooftop,
+          eta: overrideLine.stockQty > 0 ? "Same day" : "Backorder",
+          notes: overrideLine.notes,
+        }
+      );
+      setSelectedRfq(updated as Rfq);
+      setOverrideLine(null);
+      await fetchPartsCheck();
+      if (onRefreshNeeded) onRefreshNeeded();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to override RFQ line");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleSimulateInboundRfq = async (e: React.FormEvent) => {
     e.preventDefault();
     setSimulating(true);
@@ -91,10 +191,12 @@ export default function PartsCheckPage({
     try {
       await backendApi.partsCheck.inbound({
         rfqId: `PC-RFQ-${Date.now().toString().slice(-5)}`,
+        buyerId: "BUYER-DANDENONG-SMASH",
         rooftopId: selectedRooftop,
         repairerName,
         repairerEmail: "quotes@dandenongsmash.com.au",
-        vehicle: {
+        tradeAccountId: undefined,
+        vehicleDetails: {
           rego,
           vin,
           make: "HYUNDAI",
@@ -108,7 +210,6 @@ export default function PartsCheckPage({
             partNumber: simPart,
             description: "Front Brake Pad Kit",
             quantity: simQty,
-            requestedType: "OEM",
           },
         ],
       });
@@ -264,16 +365,26 @@ export default function PartsCheckPage({
                       </div>
                     </td>
                     <td className="py-3.5 text-right">
-                      <button
-                        disabled={quotingId === (r._id || r.rfqId)}
-                        onClick={() => handleTriggerQuote(r._id || r.rfqId || "")}
-                        className="inline-flex items-center gap-1 btn-primary py-1 px-3 text-xs shadow-none"
-                      >
-                        <Send size={12} />
-                        <span>
-                          {quotingId === (r._id || r.rfqId) ? "Quoting..." : "Quote Back"}
-                        </span>
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          disabled={detailLoading}
+                          onClick={() => handleInspectRfq(r._id || r.rfqId || "")}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 border border-slate-200 transition"
+                        >
+                          <Eye size={12} />
+                          <span>Detail</span>
+                        </button>
+                        <button
+                          disabled={quotingId === (r._id || r.rfqId)}
+                          onClick={() => handleTriggerQuote(r._id || r.rfqId || "")}
+                          className="inline-flex items-center gap-1 btn-primary py-1 px-3 text-xs shadow-none"
+                        >
+                          <Send size={12} />
+                          <span>
+                            {quotingId === (r._id || r.rfqId) ? "Quoting..." : "Quote Back"}
+                          </span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -289,6 +400,212 @@ export default function PartsCheckPage({
           </div>
         )}
       </div>
+
+      {selectedRfq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">
+                  RFQ {selectedRfq.rfqId || selectedRfq._id}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  {selectedRfq.repairerName || selectedRfq.buyerName || "Repairer"} · {selectedRfq.rooftopId || selectedRooftop}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedRfq(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="eyebrow">Status</p>
+                <p className="mt-1 text-xs font-black text-slate-900">
+                  {selectedRfq.status || selectedRfq.state || "RECEIVED"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="eyebrow">Mapped Account</p>
+                <p className="mt-1 text-xs font-black text-slate-900">
+                  {selectedRfq.tradeAccountId || selectedRfq.mappedTradeAccountId || "Unmapped"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="eyebrow">SLA Deadline</p>
+                <p className="mt-1 text-xs font-black text-slate-900">
+                  {shortDate(selectedRfq.deadline || selectedRfq.slaDeadline)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="eyebrow">Total</p>
+                <p className="mt-1 text-xs font-black text-slate-900">
+                  {money(selectedRfq.totalCents)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 border border-slate-200 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="p-3">Line</th>
+                    <th className="p-3">Source</th>
+                    <th className="p-3">Qty</th>
+                    <th className="p-3">Trade</th>
+                    <th className="p-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(selectedRfq.lines || []).map((line, idx) => (
+                    <tr key={line.lineId || idx}>
+                      <td className="p-3">
+                        <p className="font-bold text-slate-900">{line.partNumber}</p>
+                        <p className="text-[11px] text-slate-400">{line.description}</p>
+                      </td>
+                      <td className="p-3 text-slate-600">
+                        <p className="font-semibold">{line.resolvedSourceName || "Pending"}</p>
+                        <p className="text-[10px] text-slate-400">{line.status || line.state || "PENDING"}</p>
+                      </td>
+                      <td className="p-3 font-bold text-slate-800">{line.quantity ?? 1}</td>
+                      <td className="p-3 font-black text-slate-900">
+                        {money(line.unitTradePriceCents || line.tradePriceCents || line.resolvedPriceCents)}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() =>
+                            setOverrideLine({
+                              rfqId: selectedRfq._id || selectedRfq.rfqId || "",
+                              lineId: line.lineId || line.partNumber || "",
+                              partNumber: line.partNumber || "Line",
+                              priceCents:
+                                line.unitTradePriceCents ||
+                                line.tradePriceCents ||
+                                line.resolvedPriceCents ||
+                                0,
+                              stockQty: line.stockQty ?? 1,
+                              sourceName: line.resolvedSourceName || "Controller Override",
+                              notes: line.overrideNotes || "Manual RFQ line resolution",
+                            })
+                          }
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100"
+                        >
+                          <DollarSign size={12} />
+                          <span>Override</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-5 flex flex-col sm:flex-row sm:items-center justify-end gap-2">
+              <button
+                onClick={() => handleTriggerQuote(selectedRfq._id || selectedRfq.rfqId || "")}
+                disabled={!!actionLoading || !!quotingId}
+                className="btn-soft text-xs"
+              >
+                <Send size={13} />
+                Trigger Quote
+              </button>
+              <button
+                onClick={() => handleAcceptRfq(selectedRfq._id || selectedRfq.rfqId || "")}
+                disabled={!!actionLoading}
+                className="btn-primary text-xs"
+              >
+                <CheckCircle2 size={13} />
+                {actionLoading?.startsWith("accept") ? "Accepting..." : "Accept & Raise Order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {overrideLine && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-black text-slate-900">
+                Override {overrideLine.partNumber}
+              </h3>
+              <button onClick={() => setOverrideLine(null)} className="text-slate-400 hover:bg-slate-100 p-1 rounded-lg">
+                <X size={17} />
+              </button>
+            </div>
+
+            <form onSubmit={handleOverrideLine} className="mt-4 space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Trade Price Cents
+                  </label>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    value={overrideLine.priceCents}
+                    onChange={(e) =>
+                      setOverrideLine({ ...overrideLine, priceCents: parseInt(e.target.value) || 0 })
+                    }
+                    className="field text-xs py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Stock Qty
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={overrideLine.stockQty}
+                    onChange={(e) =>
+                      setOverrideLine({ ...overrideLine, stockQty: parseInt(e.target.value) || 0 })
+                    }
+                    className="field text-xs py-2"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Source Name
+                </label>
+                <input
+                  value={overrideLine.sourceName}
+                  onChange={(e) => setOverrideLine({ ...overrideLine, sourceName: e.target.value })}
+                  className="field text-xs py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Notes
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={overrideLine.notes}
+                  onChange={(e) => setOverrideLine({ ...overrideLine, notes: e.target.value })}
+                  className="field text-xs resize-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+                <button type="button" onClick={() => setOverrideLine(null)} className="btn-soft text-xs">
+                  Cancel
+                </button>
+                <button type="submit" disabled={!!actionLoading} className="btn-primary text-xs">
+                  {actionLoading?.startsWith("override") ? "Saving..." : "Save Override"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ─── SIMULATE INBOUND RFQ MODAL ─── */}
       {simulateModal && (

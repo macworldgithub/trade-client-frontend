@@ -50,10 +50,16 @@ export default function OrdersPage({
     lineId: string;
     partNumber: string;
   } | null>(null);
+  const [reSourceModal, setReSourceModal] = useState<{
+    orderId: string;
+    lineId: string;
+    partNumber: string;
+  } | null>(null);
 
   // Order creation form state
   const [customerReference, setCustomerReference] = useState("");
-  const [deliveryType, setDeliveryType] = useState<"COLLECT" | "DELIVERY">("COLLECT");
+  const [tradeAccountId, setTradeAccountId] = useState(user?.tradeAccountId || "");
+  const [deliveryMethod, setDeliveryMethod] = useState<"COLLECTION" | "DELIVERY">("COLLECTION");
   const [partLines, setPartLines] = useState<Array<{ partNumber: string; quantity: number }>>([
     { partNumber: "", quantity: 1 },
   ]);
@@ -64,6 +70,14 @@ export default function OrdersPage({
   const [exceptionReason, setExceptionReason] = useState("OUT_OF_STOCK");
   const [exceptionDesc, setExceptionDesc] = useState("");
   const [submittingException, setSubmittingException] = useState(false);
+  const [reSourceKind, setReSourceKind] = useState("SISTER");
+  const [reSourceName, setReSourceName] = useState("");
+  const [reSourceRooftop, setReSourceRooftop] = useState("");
+  const [reSourceBin, setReSourceBin] = useState("");
+  const [reSourcePrice, setReSourcePrice] = useState("");
+  const [reSourceEta, setReSourceEta] = useState("");
+  const [reSourceNotes, setReSourceNotes] = useState("");
+  const [submittingReSource, setSubmittingReSource] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -115,8 +129,9 @@ export default function OrdersPage({
     try {
       await backendApi.orders.create({
         rooftopId: selectedRooftop,
+        tradeAccountId: tradeAccountId.trim() || user?.tradeAccountId || undefined,
         customerReference: customerReference.trim() || undefined,
-        deliveryType,
+        deliveryMethod,
         lines: validLines.map((l) => ({
           partNumber: l.partNumber.trim(),
           quantity: Number(l.quantity) || 1,
@@ -125,6 +140,7 @@ export default function OrdersPage({
 
       setCreateModal(false);
       setCustomerReference("");
+      setTradeAccountId(user?.tradeAccountId || "");
       setPartLines([{ partNumber: "", quantity: 1 }]);
       fetchOrders();
       if (onRefreshNeeded) onRefreshNeeded();
@@ -184,6 +200,44 @@ export default function OrdersPage({
       alert(err instanceof Error ? err.message : "Failed to flag exception");
     } finally {
       setSubmittingException(false);
+    }
+  };
+
+  const handleReSourceLine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reSourceModal) return;
+    setSubmittingReSource(true);
+
+    try {
+      await backendApi.orders.reSource(
+        reSourceModal.orderId,
+        reSourceModal.lineId,
+        {
+          newSourceKind: reSourceKind,
+          newSourceName: reSourceName || "Controller Re-source",
+          newSourceRooftopId: reSourceRooftop || undefined,
+          newBinLocation: reSourceBin || undefined,
+          newUnitPriceCents: reSourcePrice ? Number(reSourcePrice) : undefined,
+          newEta: reSourceEta || undefined,
+          notes: reSourceNotes || "Controller re-sourced line item",
+        }
+      );
+
+      setReSourceModal(null);
+      setReSourceName("");
+      setReSourceRooftop("");
+      setReSourceBin("");
+      setReSourcePrice("");
+      setReSourceEta("");
+      setReSourceNotes("");
+      const updated = await backendApi.orders.get(reSourceModal.orderId);
+      setSelectedOrder(updated);
+      fetchOrders();
+      if (onRefreshNeeded) onRefreshNeeded();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to re-source line");
+    } finally {
+      setSubmittingReSource(false);
     }
   };
 
@@ -429,14 +483,27 @@ export default function OrdersPage({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Trade Account ID
+                </label>
+                <input
+                  type="text"
+                  value={tradeAccountId}
+                  onChange={(e) => setTradeAccountId(e.target.value)}
+                  placeholder="ACC-000123"
+                  className="field py-2 text-xs uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                   Collection Preference
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setDeliveryType("COLLECT")}
+                    onClick={() => setDeliveryMethod("COLLECTION")}
                     className={`p-2.5 rounded-xl text-xs font-bold border transition ${
-                      deliveryType === "COLLECT"
+                      deliveryMethod === "COLLECTION"
                         ? "bg-red-50 border-red-500 text-red-700"
                         : "border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
@@ -445,9 +512,9 @@ export default function OrdersPage({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setDeliveryType("DELIVERY")}
+                    onClick={() => setDeliveryMethod("DELIVERY")}
                     className={`p-2.5 rounded-xl text-xs font-bold border transition ${
-                      deliveryType === "DELIVERY"
+                      deliveryMethod === "DELIVERY"
                         ? "bg-red-50 border-red-500 text-red-700"
                         : "border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
@@ -630,6 +697,17 @@ export default function OrdersPage({
                             Pick
                           </button>
                           <button
+                            onClick={() => setReSourceModal({
+                              orderId: selectedOrder._id || selectedOrder.orderNumber || "",
+                              lineId: line.lineId || line.partNumber || "",
+                              partNumber: line.partNumber || "Line",
+                            })}
+                            className="px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-[11px] transition"
+                            title="Re-source this line item"
+                          >
+                            Re-source
+                          </button>
+                          <button
                             onClick={() => setExceptionModal({
                               orderId: selectedOrder._id || selectedOrder.orderNumber || "",
                               lineId: line.lineId || line.partNumber || "",
@@ -655,6 +733,129 @@ export default function OrdersPage({
                 {money(selectedOrder.totalCents)}
               </span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {reSourceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-black text-slate-900">
+                Re-source Line
+              </h3>
+              <button onClick={() => setReSourceModal(null)} className="text-slate-400 hover:bg-slate-100 p-1 rounded-lg">
+                <X size={17} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 mt-2">
+              Order: {reSourceModal.orderId} · Part: <b>{reSourceModal.partNumber}</b>
+            </p>
+
+            <form onSubmit={handleReSourceLine} className="mt-4 space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Source Kind
+                  </label>
+                  <select
+                    value={reSourceKind}
+                    onChange={(e) => setReSourceKind(e.target.value)}
+                    className="field text-xs bg-white"
+                  >
+                    <option value="SISTER">Sister Branch</option>
+                    <option value="BRANCH">Own Branch</option>
+                    <option value="OEM">OEM Portal</option>
+                    <option value="AFTERMARKET">Aftermarket</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Price Cents
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={reSourcePrice}
+                    onChange={(e) => setReSourcePrice(e.target.value)}
+                    placeholder="Optional"
+                    className="field text-xs py-2"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Source Name
+                </label>
+                <input
+                  required
+                  value={reSourceName}
+                  onChange={(e) => setReSourceName(e.target.value)}
+                  placeholder="e.g. Cheltenham Parts / Repco"
+                  className="field text-xs py-2"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Rooftop ID
+                  </label>
+                  <input
+                    value={reSourceRooftop}
+                    onChange={(e) => setReSourceRooftop(e.target.value)}
+                    placeholder="Optional"
+                    className="field text-xs py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Bin
+                  </label>
+                  <input
+                    value={reSourceBin}
+                    onChange={(e) => setReSourceBin(e.target.value)}
+                    placeholder="Optional"
+                    className="field text-xs py-2"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  ETA
+                </label>
+                <input
+                  value={reSourceEta}
+                  onChange={(e) => setReSourceEta(e.target.value)}
+                  placeholder="e.g. Tomorrow 9:00 AM transfer"
+                  className="field text-xs py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={reSourceNotes}
+                  onChange={(e) => setReSourceNotes(e.target.value)}
+                  className="field text-xs resize-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+                <button type="button" onClick={() => setReSourceModal(null)} className="btn-soft text-xs">
+                  Cancel
+                </button>
+                <button type="submit" disabled={submittingReSource} className="btn-primary text-xs">
+                  {submittingReSource ? "Saving..." : "Save Re-source"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -34,8 +34,13 @@ function AppContent() {
     if (!token) return;
     setDataLoading(true);
     try {
+      const canReadGroupDashboard = ["csuites", "group_admin", "store_manager"].includes(
+        (user?.role || "").toLowerCase()
+      );
       const [gRes, rRes, oRes] = await Promise.allSettled([
-        backendApi.dashboard.group(),
+        canReadGroupDashboard
+          ? backendApi.dashboard.group()
+          : Promise.resolve(null),
         backendApi.rooftops.list(),
         backendApi.orders.list("limit=20"),
       ]);
@@ -146,6 +151,7 @@ function AppContent() {
               selectedRooftop={selectedRooftop}
               onSelectRooftop={setSelectedRooftop}
               onRefreshNeeded={() => setRefreshTrigger((x) => x + 1)}
+              canManageRooftops={(user?.role || "").toLowerCase() === "group_admin"}
             />
           )}
 

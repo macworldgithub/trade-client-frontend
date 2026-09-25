@@ -65,12 +65,16 @@ export type Rooftop = {
   rooftopId: string;
   name: string;
   code: string;
+  address?: string;
   suburb?: string;
   state?: string;
+  postcode?: string;
   isActive?: boolean;
   oemBrandCodes?: string[];
   addresses?: string[];
   phone?: string;
+  pentanaSiteCode?: string;
+  timezone?: string;
 };
 
 export type Franchise = {
@@ -123,7 +127,7 @@ export type Order = {
   rooftopId?: string;
   customerReference?: string;
   promisedPickWindow?: string;
-  deliveryType?: "COLLECT" | "DELIVERY" | string;
+  deliveryMethod?: "COLLECTION" | "DELIVERY" | "COURIER" | string;
   createdAt?: string;
   updatedAt?: string;
   lines?: OrderLine[];
@@ -203,6 +207,19 @@ export type TradeAccount = {
   paymentTerms?: string;
 };
 
+export type AccountSpend = {
+  accountId?: string;
+  companyName?: string;
+  year?: number;
+  ytdSpendCents?: number;
+  ytdOrderCount?: number;
+  creditLimitCents?: number;
+  currentBalanceCents?: number;
+  discountPercent?: number;
+  creditHold?: boolean;
+  isOverdue?: boolean;
+};
+
 // ─── PartsCheck ───────────────────────────────────────────────────────
 export type PartsCheckSummary = {
   totalRfqs?: number;
@@ -211,6 +228,32 @@ export type PartsCheckSummary = {
   conversionRate?: number;
   onTimeQuoteRate?: number;
   wonOrderValueCents?: number;
+  kpis?: {
+    totalRfqs?: number;
+    totalQuoted?: number;
+    autoQuotedCount?: number;
+    manuallyQuotedCount?: number;
+    autoQuoteRatePercent?: number;
+    unmappedBuyerCount?: number;
+    pendingReviewCount?: number;
+    acceptedCount?: number;
+    rejectedCount?: number;
+    conversionRatePercent?: number;
+    totalRevenueCents?: number;
+    slaBreachedCount?: number;
+    slaComplianceRatePercent?: number;
+  };
+  precinctMetrics?: Array<{
+    rooftopId?: string;
+    name?: string;
+    code?: string;
+    totalRfqs?: number;
+    autoQuoted?: number;
+    autoQuoteRatePercent?: number;
+    acceptedCount?: number;
+    winRatePercent?: number;
+    revenueCents?: number;
+  }>;
 };
 
 export type RfqLine = {
@@ -219,11 +262,21 @@ export type RfqLine = {
   description?: string;
   quantity?: number;
   requestedType?: string;
+  status?: string;
   state?: string;
+  resolvedSourceKind?: string;
+  resolvedSourceName?: string;
+  unitTradePriceCents?: number;
+  totalPriceCents?: number;
   resolvedPriceCents?: number;
   tradePriceCents?: number;
+  coreChargeCents?: number;
   stockQty?: number;
+  inStock?: boolean;
   eta?: string;
+  binLocation?: string;
+  isOverridden?: boolean;
+  overrideNotes?: string;
 };
 
 export type Rfq = {
@@ -231,6 +284,7 @@ export type Rfq = {
   rfqId?: string;
   repairerName?: string;
   buyerName?: string;
+  buyerId?: string;
   repairerEmail?: string;
   buyerEmail?: string;
   rooftopId?: string;
@@ -240,10 +294,20 @@ export type Rfq = {
   slaDeadline?: string;
   isBuyerMapped?: boolean;
   mappedTradeAccountId?: string;
+  tradeAccountId?: string;
   totalCents?: number;
+  subtotalCents?: number;
+  gstCents?: number;
   createdAt?: string;
   lines?: RfqLine[];
   vehicle?: {
+    vin?: string;
+    rego?: string;
+    make?: string;
+    model?: string;
+    year?: number;
+  };
+  vehicleDetails?: {
     vin?: string;
     rego?: string;
     make?: string;
@@ -281,4 +345,89 @@ export type AuditResponse = {
   limit?: number;
   totalPages?: number;
   events?: AuditEventRecord[];
+};
+
+export type StoreDashboard = {
+  precinct?: {
+    rooftopId?: string;
+    name?: string;
+    code?: string;
+    address?: string;
+    phone?: string;
+    oemBrandCodes?: string[];
+  };
+  financialSummary?: {
+    totalRevenueCents?: number;
+    totalOrders?: number;
+    todayOrdersCount?: number;
+    weekOrdersCount?: number;
+  };
+  warehouseQueue?: {
+    pendingPicking?: number;
+    partiallyPicked?: number;
+    pickedReady?: number;
+    dispatched?: number;
+    delivered?: number;
+    activeExceptions?: number;
+    totalInQueue?: number;
+  };
+  accountsStatus?: {
+    totalAccounts?: number;
+    onCreditHold?: number;
+    overdue?: number;
+  };
+  partscheckSummary?: {
+    openRfqs?: number;
+    autoQuoted?: number;
+  };
+};
+
+export type StorePartsCheckDashboard = {
+  rooftopId?: string;
+  slaOverview?: {
+    totalRfqs?: number;
+    autoQuoted?: number;
+    manuallyQuoted?: number;
+    unmappedBuyers?: number;
+    pendingReview?: number;
+    accepted?: number;
+    rejected?: number;
+    expired?: number;
+    urgentExpiringWithin1Hour?: number;
+    autoQuoteRatePercent?: number;
+    winRatePercent?: number;
+    slaComplianceRatePercent?: number;
+  };
+};
+
+export type WeeklyExport = {
+  period?: {
+    from?: string;
+    to?: string;
+    rooftopId?: string;
+  };
+  financialSummary?: {
+    totalOrdersCount?: number;
+    totalRevenueAud?: string;
+    totalGstAud?: string;
+    totalCoreChargesAud?: string;
+  };
+  partscheckSummary?: {
+    totalRfqs?: number;
+    autoQuoted?: number;
+    accepted?: number;
+  };
+  topAccounts?: Array<{
+    accountId?: string;
+    name?: string;
+    count?: number;
+    spendCents?: number;
+  }>;
+  topParts?: Array<{
+    partNumber?: string;
+    description?: string;
+    qty?: number;
+    spendCents?: number;
+  }>;
+  orderRows?: Array<Record<string, unknown>>;
 };

@@ -27,20 +27,36 @@ export default function ActivityLogPage({ selectedRooftop }: Props) {
   const [events, setEvents] = useState<AuditEventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [actionFilter, setActionFilter] = useState("");
+  const [scopeRooftop, setScopeRooftop] = useState(selectedRooftop || "");
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams({ limit: "100" });
+      if (scopeRooftop) params.set("rooftopId", scopeRooftop);
+      if (actionFilter) params.set("action", actionFilter);
+      if (search.trim()) {
+        const value = search.trim();
+        if (value.toUpperCase().startsWith("ORD-")) params.set("orderId", value);
+        else if (value.toUpperCase().startsWith("ACC-")) params.set("tradeAccountId", value);
+        else params.set("userId", value);
+      }
+
     setLoading(true);
     backendApi.audit
-      .list("limit=100")
+        .list(params.toString())
       .then((data) => {
         setEvents(data.events || []);
       })
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
-  }, []);
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [search, actionFilter, scopeRooftop]);
 
   const filtered = events.filter((e) =>
-    `${e.action || ""} ${e.userId || ""} ${e.rooftopId || ""}`
+    `${e.action || ""} ${e.userId || ""} ${e.orderId || ""} ${e.rooftopId || ""} ${e.tradeAccountId || ""}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
@@ -81,10 +97,32 @@ export default function ActivityLogPage({ selectedRooftop }: Props) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search action, user ID, precinct..."
+              placeholder="User, order #, or trade account..."
               className="field pl-9 py-2 text-xs"
             />
           </div>
+
+          <select
+            value={actionFilter}
+            onChange={(e) => setActionFilter(e.target.value)}
+            className="field py-2 text-xs bg-white max-w-[180px]"
+          >
+            <option value="">All actions</option>
+            <option value="LOGIN">Auth login</option>
+            <option value="ORDER_SUBMIT">Order submit</option>
+            <option value="PICK">Pick</option>
+            <option value="EXCEPTION">Exception</option>
+            <option value="SEARCH">Part search</option>
+            <option value="SOURCE_RESOLVE">Part resolve</option>
+            <option value="PARTSCHECK_QUOTE_BACK">PartsCheck quote</option>
+          </select>
+
+          <input
+            value={scopeRooftop}
+            onChange={(e) => setScopeRooftop(e.target.value)}
+            placeholder="Rooftop ID"
+            className="field py-2 text-xs max-w-[190px]"
+          />
 
           <span className="text-xs font-semibold text-slate-400">
             {filtered.length} audit entries

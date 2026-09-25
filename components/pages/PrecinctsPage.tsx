@@ -12,6 +12,7 @@ import {
   Layers,
   Phone,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import { backendApi } from "../../lib/backend-api";
 import type { Rooftop, Franchise, FeedHealth } from "../../lib/types";
@@ -22,12 +23,14 @@ type Props = {
   selectedRooftop?: string;
   onSelectRooftop?: (id: string) => void;
   onRefreshNeeded?: () => void;
+  canManageRooftops?: boolean;
 };
 
 export default function PrecinctsPage({
   selectedRooftop = "ROOFTOP-DANDENONG",
   onSelectRooftop,
   onRefreshNeeded,
+  canManageRooftops = false,
 }: Props) {
   const [rooftops, setRooftops] = useState<Rooftop[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,23 @@ export default function PrecinctsPage({
   const [franchises, setFranchises] = useState<Franchise[]>([]);
   const [feedHealth, setFeedHealth] = useState<FeedHealth[]>([]);
   const [inspectLoading, setInspectLoading] = useState(false);
+  const [formModal, setFormModal] = useState<"create" | "edit" | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [form, setForm] = useState({
+    rooftopId: "",
+    name: "",
+    code: "",
+    address: "",
+    suburb: "",
+    state: "VIC",
+    postcode: "",
+    phone: "",
+    pentanaSiteCode: "",
+    oemBrandCodes: "",
+    timezone: "+10:00",
+    isActive: true,
+  });
 
   useEffect(() => {
     backendApi.rooftops
@@ -51,14 +71,16 @@ export default function PrecinctsPage({
   }, [selectedRooftop]);
 
   const inspectRooftop = async (r: Rooftop) => {
-    setSelectedPrecinct(r);
     setInspectLoading(true);
     try {
-      const [fData, hData] = await Promise.allSettled([
+      const [detailData, fData, hData] = await Promise.allSettled([
+        backendApi.rooftops.get(r.rooftopId),
         backendApi.rooftops.franchises(r.rooftopId),
         backendApi.rooftops.feedHealth(r.rooftopId),
       ]);
 
+      if (detailData.status === "fulfilled") setSelectedPrecinct(detailData.value as Rooftop);
+      else setSelectedPrecinct(r);
       if (fData.status === "fulfilled") setFranchises(fData.value as Franchise[]);
       if (hData.status === "fulfilled") setFeedHealth(hData.value as FeedHealth[]);
     } catch {
@@ -66,6 +88,75 @@ export default function PrecinctsPage({
       setFeedHealth([]);
     } finally {
       setInspectLoading(false);
+    }
+  };
+
+  const resetForm = (r?: Rooftop) => {
+    setForm({
+      rooftopId: r?.rooftopId || "",
+      name: r?.name || "",
+      code: r?.code || "",
+      address: r?.address || "",
+      suburb: r?.suburb || "",
+      state: r?.state || "VIC",
+      postcode: r?.postcode || "",
+      phone: r?.phone || "",
+      pentanaSiteCode: r?.pentanaSiteCode || "",
+      oemBrandCodes: (r?.oemBrandCodes || []).join(", "),
+      timezone: r?.timezone || "+10:00",
+      isActive: r?.isActive !== false,
+    });
+    setFormError("");
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setFormModal("create");
+  };
+
+  const openEdit = () => {
+    if (!selectedPrecinct) return;
+    resetForm(selectedPrecinct);
+    setFormModal("edit");
+  };
+
+  const saveRooftop = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setFormError("");
+    const body = {
+      rooftopId: form.rooftopId.trim(),
+      name: form.name.trim(),
+      code: form.code.trim().toUpperCase(),
+      address: form.address.trim(),
+      suburb: form.suburb.trim(),
+      state: form.state.trim() || "VIC",
+      postcode: form.postcode.trim(),
+      phone: form.phone.trim() || undefined,
+      pentanaSiteCode: form.pentanaSiteCode.trim() || undefined,
+      oemBrandCodes: form.oemBrandCodes
+        .split(",")
+        .map((b) => b.trim().toUpperCase())
+        .filter(Boolean),
+      timezone: form.timezone.trim() || "+10:00",
+      isActive: form.isActive,
+    };
+
+    try {
+      const saved =
+        formModal === "create"
+          ? await backendApi.rooftops.create(body)
+          : await backendApi.rooftops.update(selectedPrecinct?.rooftopId || body.rooftopId, body);
+      setFormModal(null);
+      const list = await backendApi.rooftops.list();
+      setRooftops(list);
+      await inspectRooftop(saved);
+      if (onSelectRooftop) onSelectRooftop(saved.rooftopId);
+      if (onRefreshNeeded) onRefreshNeeded();
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : "Failed to save rooftop");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -81,6 +172,15 @@ export default function PrecinctsPage({
             Booran Motor Group network of 9 precincts &amp; 24 published addresses.
           </p>
         </div>
+        {canManageRooftops && (
+          <button
+            onClick={openCreate}
+            className="btn-primary shadow-md shadow-red-500/20"
+          >
+            <Plus size={16} />
+            <span>New Rooftop</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
@@ -183,6 +283,15 @@ export default function PrecinctsPage({
                 </span>
               </div>
 
+              {canManageRooftops && (
+                <button
+                  onClick={openEdit}
+                  className="w-full btn-soft text-xs justify-center"
+                >
+                  Update Rooftop
+                </button>
+              )}
+
               {/* Brands / Franchises Register */}
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
@@ -269,6 +378,92 @@ export default function PrecinctsPage({
           )}
         </div>
       </div>
+
+      {formModal && canManageRooftops && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-900">
+                {formModal === "create" ? "Create Rooftop" : "Update Rooftop"}
+              </h3>
+              <button onClick={() => setFormModal(null)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="mt-4 p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={saveRooftop} className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Rooftop ID</label>
+                  <input required value={form.rooftopId} onChange={(e) => setForm({ ...form, rooftopId: e.target.value })} className="field text-xs py-2" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Code</label>
+                  <input required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className="field text-xs py-2 uppercase" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pentana Code</label>
+                  <input value={form.pentanaSiteCode} onChange={(e) => setForm({ ...form, pentanaSiteCode: e.target.value })} className="field text-xs py-2" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Name</label>
+                <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="field text-xs py-2" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Address</label>
+                <input required value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="field text-xs py-2" />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Suburb</label>
+                  <input required value={form.suburb} onChange={(e) => setForm({ ...form, suburb: e.target.value })} className="field text-xs py-2" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">State</label>
+                  <input required value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} className="field text-xs py-2 uppercase" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Postcode</label>
+                  <input required value={form.postcode} onChange={(e) => setForm({ ...form, postcode: e.target.value })} className="field text-xs py-2" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Phone</label>
+                  <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="field text-xs py-2" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Brands</label>
+                  <input value={form.oemBrandCodes} onChange={(e) => setForm({ ...form, oemBrandCodes: e.target.value })} placeholder="HYUNDAI, KIA" className="field text-xs py-2" />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
+                Active rooftop
+              </label>
+
+              <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
+                <button type="button" onClick={() => setFormModal(null)} className="btn-soft text-xs">Cancel</button>
+                <button type="submit" disabled={saving} className="btn-primary text-xs">
+                  {saving ? "Saving..." : "Save Rooftop"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
