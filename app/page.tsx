@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { AuthProvider, useAuth } from "../lib/auth-context";
 import { backendApi } from "../lib/backend-api";
 import type { GroupData, Rooftop, Order } from "../lib/types";
-import Sidebar, { type NavKey } from "../components/Sidebar";
+import Sidebar, { BottomTabs, type NavKey } from "../components/Sidebar";
 import Header from "../components/Header";
 import LoginPage from "../components/LoginPage";
 
@@ -107,7 +107,7 @@ function AppContent() {
           rooftops={rooftops}
         />
 
-        <main className="flex-1 p-4 xs:p-6 sm:p-8 max-w-[1550px] w-full mx-auto">
+        <main className="flex-1 p-4 xs:p-6 sm:p-8 pb-24 lg:pb-8 max-w-[1550px] w-full mx-auto">
           {activePage === "overview" && (
             <OverviewPage
               group={group}
@@ -160,6 +160,8 @@ function AppContent() {
           )}
         </main>
       </div>
+
+      <BottomTabs activePage={activePage} onNavigate={setActivePage} />
     </div>
   );
 }

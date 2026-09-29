@@ -173,3 +173,64 @@ export default function Sidebar({
     </>
   );
 }
+
+type BottomTabsProps = {
+  activePage: NavKey;
+  onNavigate: (key: NavKey) => void;
+};
+
+const bottomTabKeys: NavKey[] = [
+  "orders",
+  "parts",
+  "partscheck",
+  "accounts",
+  "precincts",
+];
+
+const bottomTabLabels: Partial<Record<NavKey, string>> = {
+  orders: "Order",
+  parts: "Catalogue",
+  partscheck: "RFQs",
+  accounts: "Accounts",
+  precincts: "Precincts",
+};
+
+export function BottomTabs({ activePage, onNavigate }: BottomTabsProps) {
+  const { user } = useAuth();
+  const role = user?.role || "trade_partner";
+
+  const visibleItems = navItems.filter((item) => {
+    if (!bottomTabKeys.includes(item.key)) return false;
+    if (!item.minRole) return true;
+    if (item.minRole === "internal") return isInternal(role);
+    if (item.minRole === "admin") return isAdmin(role);
+    return false;
+  });
+
+  if (!visibleItems.length) return null;
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-slate-950 text-slate-400 shadow-2xl lg:hidden">
+      <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${visibleItems.length}, minmax(0, 1fr))` }}>
+        {visibleItems.map((item) => {
+          const active = activePage === item.key;
+          const Icon = item.icon;
+
+          return (
+            <button
+              key={item.key}
+              onClick={() => onNavigate(item.key)}
+              className={`flex min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-bold transition-colors ${
+                active ? "text-brand-500" : "text-slate-400 hover:text-white"
+              }`}
+              aria-label={item.label}
+            >
+              <Icon size={18} strokeWidth={active ? 2.4 : 1.8} />
+              <span className="max-w-full truncate">{bottomTabLabels[item.key] || item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
