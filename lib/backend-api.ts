@@ -14,6 +14,7 @@ import type {
   RfqInboxResponse,
   TradeAccount,
   User,
+  UsersResponse,
   PartsCheckSummary,
   WeeklyExport,
 } from './types';
@@ -225,6 +226,22 @@ export const backendApi = {
         `weekly-pack-${rooftopId ? rooftopId.toLowerCase() : 'network'}.csv`
       );
     },
+  },
+
+  users: {
+    list: (query = '') =>
+      api<UsersResponse>(`/auth/users${query ? `?${query}` : ''}`),
+    get: (id: string) =>
+      api<User>(`/auth/users/${encodeURIComponent(id)}`),
+    update: (id: string, body: Partial<User>) =>
+      api<{ message: string; user: User }>(`/auth/users/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    delete: (id: string) =>
+      api<{ message: string }>(`/auth/users/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
   },
 
   audit: {

@@ -11,6 +11,7 @@ import {
   LogOut,
   X,
   ChevronRight,
+  UserCog,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import { isAdmin, isPartsController, isTradePartner } from "../lib/types";
@@ -22,6 +23,7 @@ export type NavKey =
   | "partscheck"
   | "accounts"
   | "precincts"
+  | "users"
   | "activity";
 
 type NavItem = {
@@ -38,6 +40,7 @@ const navItems: NavItem[] = [
   { label: "PartsCheck RFQs", icon: ClipboardList, key: "partscheck", visibleFor: "controller" },
   { label: "Trade Accounts", icon: Users, key: "accounts", visibleFor: "controller_admin" },
   { label: "Precincts & Feeds", icon: Building2, key: "precincts", visibleFor: "admin" },
+  { label: "User Management", icon: UserCog, key: "users", visibleFor: "admin" },
   { label: "Audit & Stream", icon: Activity, key: "activity", visibleFor: "admin" },
 ];
 

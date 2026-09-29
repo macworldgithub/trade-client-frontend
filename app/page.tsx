@@ -15,6 +15,7 @@ import PartsPage from "../components/pages/PartsPage";
 import PartsCheckPage from "../components/pages/PartsCheckPage";
 import AccountsPage from "../components/pages/AccountsPage";
 import PrecinctsPage from "../components/pages/PrecinctsPage";
+import UsersPage from "../components/pages/UsersPage";
 import ActivityLogPage from "../components/pages/ActivityLogPage";
 
 function AppContent() {
@@ -74,7 +75,7 @@ function AppContent() {
       allowed.push("orders", "accounts");
     }
     if (isPartsController(role)) allowed.push("partscheck");
-    if (isAdmin(role)) allowed.push("precincts", "activity");
+    if (isAdmin(role)) allowed.push("precincts", "users", "activity");
 
     if (!allowed.includes(activePage)) {
       setActivePage("overview");
@@ -168,6 +169,14 @@ function AppContent() {
               onSelectRooftop={setSelectedRooftop}
               onRefreshNeeded={() => setRefreshTrigger((x) => x + 1)}
               canManageRooftops={["admin", "group_admin"].includes((user?.role || "").toLowerCase())}
+            />
+          )}
+
+          {activePage === "users" && (
+            <UsersPage
+              selectedRooftop={selectedRooftop}
+              rooftops={rooftops}
+              onRefreshNeeded={() => setRefreshTrigger((x) => x + 1)}
             />
           )}
 

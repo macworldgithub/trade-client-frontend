@@ -37,6 +37,16 @@ export type User = {
   creditHold?: boolean;
   isOverdue?: boolean;
   isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type UsersResponse = {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  users: User[];
 };
 
 export type LoginResponse = {
