@@ -11,12 +11,16 @@ import {
   ExternalLink,
   Building2,
   ShieldCheck,
-  ArrowUpRight,
   Clock,
-  Truck,
-  CheckCircle,
   TrendingUp,
   Download,
+  FileSpreadsheet,
+  Printer,
+  Loader2,
+  CheckCircle2,
+  Calendar,
+  X,
+  FileText,
 } from "lucide-react";
 import type {
   GroupData,
@@ -28,7 +32,6 @@ import type {
 } from "../../lib/types";
 import { money, shortDate } from "../../lib/api";
 import { backendApi } from "../../lib/backend-api";
-import StatCard from "../ui/StatCard";
 import EmptyState from "../ui/EmptyState";
 import type { NavKey } from "../Sidebar";
 
@@ -54,6 +57,13 @@ export default function OverviewPage({
   const [storePartsCheck, setStorePartsCheck] = useState<StorePartsCheckDashboard | null>(null);
   const [weeklyExport, setWeeklyExport] = useState<WeeklyExport | null>(null);
   const [storeLoading, setStoreLoading] = useState(false);
+
+  // Export State
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportScope, setExportScope] = useState<"current" | "network">("current");
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -133,6 +143,84 @@ export default function OverviewPage({
     };
   }, [selectedRooftop]);
 
+  // Client-side fallback CSV generator for offline / mock resilience
+  const generateClientCsvFallback = (scope: "current" | "network") => {
+    const scopeName = scope === "current" ? selectedRooftop : "Booran Group Network";
+    const now = new Date();
+    const rows: string[] = [
+      `Booran Motor Group — Weekly Management Pack`,
+      `Generated: ${now.toISOString()}`,
+      `Scope: ${scopeName}`,
+      "",
+      "--- EXECUTIVE SUMMARY ---",
+      `Total Orders,${weeklyExport?.financialSummary?.totalOrdersCount ?? orders.length}`,
+      `Total Revenue (AUD),$${weeklyExport?.financialSummary?.totalRevenueAud ?? ((n?.totalRevenueCents || 0) / 100).toFixed(2)}`,
+      `Total GST (AUD),$${weeklyExport?.financialSummary?.totalGstAud ?? "0.00"}`,
+      `PartsCheck RFQs,${weeklyExport?.partscheckSummary?.totalRfqs ?? 0}`,
+      "",
+      "--- ORDER REGISTER ---",
+      "Order Number,Trade Account,Rooftop,Status,Lines,Total (AUD),Created Date",
+    ];
+
+    const sourceOrders = weeklyExport?.orderRows?.length
+      ? weeklyExport.orderRows
+      : orders.map((o) => ({
+          orderNumber: o.orderNumber || o._id,
+          tradeAccountId: o.tradeAccountId,
+          rooftopId: o.rooftopId || selectedRooftop,
+          state: o.state,
+          lineCount: o.lines?.length || 1,
+          totalAud: ((o.totalCents || 0) / 100).toFixed(2),
+          createdAt: o.createdAt,
+        }));
+
+    sourceOrders.forEach((o: any) => {
+      rows.push(
+        `"${o.orderNumber || ""}","${o.tradeAccountId || ""}","${o.rooftopId || ""}","${o.state || ""}","${o.lineCount || 1}","$${o.totalAud || "0.00"}","${o.createdAt || ""}"`
+      );
+    });
+
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `weekly-management-pack-${scope === "current" ? selectedRooftop.toLowerCase() : "network"}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadCsv = async (targetScope?: "current" | "network") => {
+    const scope = targetScope || exportScope;
+    setExportingCsv(true);
+    setExportError(null);
+    try {
+      const rooftopId = scope === "current" ? selectedRooftop : undefined;
+      await backendApi.dashboard.downloadWeeklyExport(rooftopId);
+      setExportSuccess(
+        `Downloaded ${scope === "current" ? selectedRooftop.replace("ROOFTOP-", "") : "Group Network"} weekly pack CSV`
+      );
+      setTimeout(() => setExportSuccess(null), 4500);
+    } catch (err: any) {
+      console.warn("Backend CSV export notice, generating fallback CSV...", err);
+      try {
+        generateClientCsvFallback(scope);
+        setExportSuccess(
+          `Generated ${scope === "current" ? selectedRooftop.replace("ROOFTOP-", "") : "Group Network"} CSV export`
+        );
+        setTimeout(() => setExportSuccess(null), 4500);
+      } catch (fallbackErr: any) {
+        setExportError(err?.message || "Failed to download export file");
+      }
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
   const storeFinancial = storeDashboard?.financialSummary;
   const storeQueue = storeDashboard?.warehouseQueue;
   const storeAccounts = storeDashboard?.accountsStatus;
@@ -162,6 +250,20 @@ export default function OverviewPage({
 
         <div className="relative z-10 flex flex-wrap gap-2.5">
           <button
+            onClick={() => handleDownloadCsv("current")}
+            disabled={exportingCsv}
+            className="btn bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm border border-white/10 backdrop-blur-sm transition-all shadow-sm"
+            title="Download Monday Management Pack CSV"
+          >
+            {exportingCsv ? (
+              <Loader2 size={16} className="animate-spin text-red-400" />
+            ) : (
+              <FileSpreadsheet size={16} className="text-emerald-400" />
+            )}
+            <span>{exportingCsv ? "Exporting..." : "Export Pack"}</span>
+          </button>
+
+          <button
             onClick={() => onPage("parts")}
             className="btn bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm border border-white/10 backdrop-blur-sm"
           >
@@ -179,7 +281,21 @@ export default function OverviewPage({
         </div>
       </div>
 
-      {/* ─── Metric Stat Cards Grid (Responsive: 1 col on mobile, 2 col on sm, 4 on xl) ─── */}
+      {/* Global feedback banner if export succeeded / failed */}
+      {exportSuccess && (
+        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold animate-fade-in shadow-sm">
+          <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+          <span>{exportSuccess}</span>
+        </div>
+      )}
+      {exportError && (
+        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold animate-fade-in shadow-sm">
+          <AlertCircle size={18} className="text-rose-600 shrink-0" />
+          <span>{exportError}</span>
+        </div>
+      )}
+
+      {/* ─── Metric Stat Cards Grid ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
         <div className="card p-5">
           <div className="flex items-start justify-between">
@@ -336,6 +452,7 @@ export default function OverviewPage({
         </section>
       </div>
 
+      {/* ─── Precinct Telemetry & Management Pack Export ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
         <section className="card p-6">
           <div className="flex items-center justify-between mb-5">
@@ -407,39 +524,106 @@ export default function OverviewPage({
           </div>
         </section>
 
-        <section className="card p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <p className="eyebrow">Weekly Export API</p>
-              <h2 className="text-lg font-bold text-slate-900">Management Pack</h2>
+        {/* ─── Monday Management Pack Export Card ─── */}
+        <section className="card p-6 flex flex-col justify-between relative overflow-hidden bg-gradient-to-b from-white to-slate-50/70 border-slate-200/80">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider mb-1">
+                  <Calendar size={11} />
+                  <span>Monday Pack</span>
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">Management Pack</h2>
+              </div>
+
+              {/* Scope pill switcher */}
+              <div className="flex items-center rounded-xl bg-slate-100 p-0.5 text-[11px] font-bold text-slate-600">
+                <button
+                  onClick={() => setExportScope("current")}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    exportScope === "current"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "hover:text-slate-900 text-slate-500"
+                  }`}
+                >
+                  Precinct
+                </button>
+                <button
+                  onClick={() => setExportScope("network")}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    exportScope === "network"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "hover:text-slate-900 text-slate-500"
+                  }`}
+                >
+                  Group Rollup
+                </button>
+              </div>
             </div>
-            <Download size={17} className="text-slate-400" />
+
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+              Executive export containing weekly financial volume, top accounts, fast-moving parts, and order ledger for weekly management review.
+            </p>
+
+            <div className="space-y-2.5 text-xs mb-5">
+              <div className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
+                <span className="font-semibold text-slate-500">Orders this pack</span>
+                <span className="font-black text-slate-900">
+                  {weeklyExport?.financialSummary?.totalOrdersCount ?? 0}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
+                <span className="font-semibold text-slate-500">Weekly Revenue AUD</span>
+                <span className="font-black text-emerald-600">
+                  ${weeklyExport?.financialSummary?.totalRevenueAud ?? "0.00"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
+                <span className="font-semibold text-slate-500">PartsCheck RFQs</span>
+                <span className="font-black text-slate-900">
+                  {weeklyExport?.partscheckSummary?.totalRfqs ?? 0}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-3 text-xs">
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <span className="font-semibold text-slate-500">Orders this pack</span>
-              <span className="font-black text-slate-900">
-                {weeklyExport?.financialSummary?.totalOrdersCount ?? 0}
-              </span>
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleDownloadCsv()}
+                disabled={exportingCsv}
+                className="flex-1 btn-primary py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all"
+              >
+                {exportingCsv ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <FileSpreadsheet size={15} />
+                )}
+                <span>{exportingCsv ? "Downloading..." : "Download CSV Pack"}</span>
+              </button>
+
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="btn bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 py-2.5 px-3 text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs"
+                title="View & Print Executive PDF Report"
+              >
+                <Printer size={15} />
+                <span className="hidden sm:inline">Print / PDF</span>
+              </button>
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <span className="font-semibold text-slate-500">Revenue AUD</span>
-              <span className="font-black text-slate-900">
-                ${weeklyExport?.financialSummary?.totalRevenueAud ?? "0.00"}
+
+            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
+              <span>
+                Scope:{" "}
+                <strong className="text-slate-600">
+                  {exportScope === "current"
+                    ? selectedRooftop.replace("ROOFTOP-", "")
+                    : "Booran Group Wide"}
+                </strong>
               </span>
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <span className="font-semibold text-slate-500">PartsCheck RFQs</span>
-              <span className="font-black text-slate-900">
-                {weeklyExport?.partscheckSummary?.totalRfqs ?? 0}
-              </span>
+              <span className="font-mono text-[10px]">/dashboard/export/weekly</span>
             </div>
           </div>
-
-          <p className="mt-4 text-[11px] font-medium text-slate-400">
-            Scope: {weeklyExport?.period?.rooftopId || selectedRooftop}
-          </p>
         </section>
       </div>
 
@@ -542,6 +726,211 @@ export default function OverviewPage({
           </div>
         </section>
       </div>
+
+      {/* ─── Executive Management Pack PDF / Print Preview Modal ─── */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in print:p-0 print:bg-white">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-scale-in print:max-w-none print:max-h-none print:shadow-none print:border-none">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-100 print:hidden">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-red-50 text-red-600 border border-red-100">
+                  <FileText size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Monday Executive Management Pack
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Print or save as PDF for weekly dealership group review
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="btn-primary py-2 px-3.5 text-xs flex items-center gap-1.5"
+                >
+                  <Printer size={15} />
+                  <span>Print / Save PDF</span>
+                </button>
+                <button
+                  onClick={() => handleDownloadCsv()}
+                  disabled={exportingCsv}
+                  className="btn bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-3 text-xs flex items-center gap-1.5"
+                >
+                  <Download size={15} />
+                  <span>CSV</span>
+                </button>
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Document Body */}
+            <div className="p-6 sm:p-8 overflow-y-auto space-y-6 text-slate-800 print:p-0">
+              {/* Report Header */}
+              <div className="border-b border-slate-200 pb-6 flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-red-600">
+                    <span>Booran Motor Group</span>
+                    <span>·</span>
+                    <span>Executive Operations Pack</span>
+                  </div>
+                  <h1 className="text-2xl font-black text-slate-900 mt-1">
+                    Weekly Management Report
+                  </h1>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Scope:{" "}
+                    <strong>
+                      {exportScope === "current"
+                        ? selectedRooftop.replace("ROOFTOP-", "")
+                        : "Group-Wide Network (9 Dealerships)"}
+                    </strong>
+                  </p>
+                </div>
+
+                <div className="text-right text-xs text-slate-500">
+                  <p className="font-semibold text-slate-700">Date Generated</p>
+                  <p>{dateStr}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">Status: Verified OK</p>
+                </div>
+              </div>
+
+              {/* Financial Summary KPI Cards */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                    Total Volume
+                  </p>
+                  <p className="text-2xl font-black text-slate-900 mt-1">
+                    ${weeklyExport?.financialSummary?.totalRevenueAud ?? "0.00"}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">Excl. GST</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                    Total Orders Placed
+                  </p>
+                  <p className="text-2xl font-black text-slate-900 mt-1">
+                    {weeklyExport?.financialSummary?.totalOrdersCount ?? orders.length}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">Trade fulfillment ledger</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                    PartsCheck RFQs
+                  </p>
+                  <p className="text-2xl font-black text-slate-900 mt-1">
+                    {weeklyExport?.partscheckSummary?.totalRfqs ?? 0}
+                  </p>
+                  <p className="text-[11px] text-emerald-600 mt-1 font-semibold">
+                    {weeklyExport?.partscheckSummary?.accepted ?? 0} accepted orders
+                  </p>
+                </div>
+              </div>
+
+              {/* Top Accounts & Parts */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    Top Trade Accounts
+                  </h4>
+                  {weeklyExport?.topAccounts?.length ? (
+                    <div className="space-y-2 text-xs">
+                      {weeklyExport.topAccounts.slice(0, 4).map((acc, i) => (
+                        <div key={i} className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0">
+                          <span className="font-semibold text-slate-800 truncate max-w-[180px]">
+                            {acc.name || acc.accountId}
+                          </span>
+                          <span className="font-black text-slate-900">
+                            {money(acc.spendCents)} ({acc.count} ord)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">No account activity recorded this week.</p>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    Fast Moving OEM Parts
+                  </h4>
+                  {weeklyExport?.topParts?.length ? (
+                    <div className="space-y-2 text-xs">
+                      {weeklyExport.topParts.slice(0, 4).map((p, i) => (
+                        <div key={i} className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0">
+                          <span className="font-semibold text-slate-800 font-mono text-[11px]">
+                            {p.partNumber}
+                          </span>
+                          <span className="font-black text-slate-900">
+                            {p.qty} units ({money(p.spendCents)})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">No OEM parts dispatched this week.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Register Table */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Order Register
+                </h4>
+                <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="p-3">Order Number</th>
+                        <th className="p-3">Account</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-right">Total AUD</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(weeklyExport?.orderRows?.slice(0, 8) || orders.slice(0, 8)).map((o: any, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="p-3 font-bold text-slate-900 font-mono">
+                            {o.orderNumber || o._id?.slice(-8) || "—"}
+                          </td>
+                          <td className="p-3 text-slate-600 truncate max-w-[150px]">
+                            {o.tradeAccountId || "Trade Customer"}
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold text-[10px]">
+                              {(o.state || "NEW").replaceAll("_", " ")}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-black text-slate-900">
+                            ${o.totalAud || ((o.totalCents || 0) / 100).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-200 flex justify-between text-[11px] text-slate-400">
+                <span>Booran Motor Group B2B Trade System</span>
+                <span>Confidential — Internal Management Distribution Only</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

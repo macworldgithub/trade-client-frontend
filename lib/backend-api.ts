@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, downloadFile } from './api';
 import type {
   AuditResponse,
   GroupData,
@@ -15,6 +15,7 @@ import type {
   TradeAccount,
   User,
   PartsCheckSummary,
+  WeeklyExport,
 } from './types';
 
 export const backendApi = {
@@ -213,7 +214,17 @@ export const backendApi = {
         `/dashboard/store/${encodeURIComponent(rooftopId)}/partscheck`
       ),
     weeklyExport: (query = '') =>
-      api<unknown>(`/dashboard/export/weekly${query ? `?${query}` : ''}`),
+      api<WeeklyExport>(`/dashboard/export/weekly${query ? `?${query}` : ''}`),
+    downloadWeeklyExport: (rooftopId?: string, week?: string) => {
+      const params = new URLSearchParams();
+      params.set('format', 'csv');
+      if (rooftopId && rooftopId !== 'ALL') params.set('rooftopId', rooftopId);
+      if (week) params.set('week', week);
+      return downloadFile(
+        `/dashboard/export/weekly?${params.toString()}`,
+        `weekly-pack-${rooftopId ? rooftopId.toLowerCase() : 'network'}.csv`
+      );
+    },
   },
 
   audit: {

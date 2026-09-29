@@ -64,3 +64,85 @@ export function shortDate(value?: string | Date) {
     year: "numeric",
   }).format(new Date(value));
 }
+
+export async function downloadFile(
+  path: string,
+  defaultFilename = "export.csv",
+  options: ApiOptions = {},
+): Promise<void> {
+  const { auth = true, headers, ...init } = options;
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("trade_access_token")
+      : null;
+
+  let response = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+    cache: "no-store",
+  });
+
+  if (response.status === 401 && auth && typeof window !== "undefined") {
+    const refreshToken = localStorage.getItem("trade_refresh_token");
+    if (refreshToken && !path.includes("/auth/refresh")) {
+      const refreshed = await fetch(`${API_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (refreshed.ok) {
+        const session = (await refreshed.json()) as {
+          accessToken?: string;
+          refreshToken?: string;
+        };
+        if (session.accessToken)
+          localStorage.setItem("trade_access_token", session.accessToken);
+        if (session.refreshToken)
+          localStorage.setItem("trade_refresh_token", session.refreshToken);
+        response = await fetch(`${API_URL}${path}`, {
+          ...init,
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+            ...headers,
+          },
+          cache: "no-store",
+        });
+      }
+    }
+  }
+
+  if (!response.ok) {
+    const body = await response.text();
+    let message = body || `Download failed (${response.status})`;
+    try {
+      const parsed = JSON.parse(body) as { message?: string | string[] };
+      if (Array.isArray(parsed.message)) message = parsed.message.join(", ");
+      else if (parsed.message) message = parsed.message;
+    } catch {
+      // Keep plain text
+    }
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("content-disposition");
+  let filename = defaultFilename;
+  if (disposition && disposition.includes("filename=")) {
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    if (match && match[1]) {
+      filename = match[1].trim();
+    }
+  }
+
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
