@@ -332,11 +332,8 @@ export default function UsersPage({
           >
             <option value="ALL">All Roles</option>
             <option value="admin">Administrators</option>
-            <option value="group_admin">Group Administrators</option>
-            <option value="store_manager">Store Managers</option>
             <option value="parts_controller">Parts Controllers</option>
             <option value="trade_partner">Trade Partners</option>
-            <option value="csuites">C-Suite</option>
           </select>
 
           {/* Rooftop Filter */}

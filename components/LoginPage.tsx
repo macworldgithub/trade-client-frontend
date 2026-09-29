@@ -31,7 +31,11 @@ type Props = {
   notice?: string;
 };
 
-export default function LoginPage({ onLogin, onRegister, notice: externalNotice }: Props) {
+export default function LoginPage({
+  onLogin,
+  onRegister,
+  notice: externalNotice,
+}: Props) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,13 +73,15 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
           setErrorNotice(err);
         } else {
           setSuccessNotice(
-            "Account registered successfully! Please check your email to verify your address, then sign in."
+            "Account registered successfully! Please check your email to verify your address, then sign in.",
           );
           setMode("login");
         }
       }
     } catch (err: unknown) {
-      setErrorNotice(err instanceof Error ? err.message : "An unexpected error occurred");
+      setErrorNotice(
+        err instanceof Error ? err.message : "An unexpected error occurred",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -97,7 +103,9 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-black tracking-wider text-white">BOORAN</span>
+              <span className="text-lg font-black tracking-wider text-white">
+                BOORAN
+              </span>
               <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
                 1965
               </span>
@@ -123,8 +131,9 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
           </h1>
 
           <p className="mt-6 text-base text-slate-400 leading-relaxed max-w-lg">
-            Streamlined self-service trade portal connecting 9 Booran precincts and 24 dealership
-            addresses directly to workshop repairers and counter queues.
+            Streamlined self-service trade portal connecting 9 Booran precincts
+            and 24 dealership addresses directly to workshop repairers and
+            counter queues.
           </p>
 
           {/* Value Props */}
@@ -135,7 +144,8 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                 Federated Stock
               </div>
               <p className="mt-1 text-xs text-slate-400">
-                Own-branch, sister rooftops &amp; OEM portal availability in one view.
+                Own-branch, sister rooftops &amp; OEM portal availability in one
+                view.
               </p>
             </div>
 
@@ -145,7 +155,8 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                 PartsCheck Auto-Quote
               </div>
               <p className="mt-1 text-xs text-slate-400">
-                Inbound smash repairer RFQs quoted automatically with SLA countdown.
+                Inbound smash repairer RFQs quoted automatically with SLA
+                countdown.
               </p>
             </div>
           </div>
@@ -155,7 +166,8 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
         <div className="relative z-10 flex items-center justify-between pt-6 border-t border-slate-800/80 text-xs text-slate-500">
           <span>Good Showroom Platform · OmniSuiteAI</span>
           <span className="flex items-center gap-1.5">
-            <ShieldCheck size={14} className="text-emerald-400" /> ACMA &amp; Privacy Act 1988
+            <ShieldCheck size={14} className="text-emerald-400" /> ACMA &amp;
+            Privacy Act 1988
           </span>
         </div>
       </div>
@@ -169,20 +181,28 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
               B
             </div>
             <div>
-              <span className="font-black tracking-wide text-slate-900 text-base">BOORAN MOTORS</span>
-              <p className="text-[10px] text-slate-500 font-medium">Trade Client Portal</p>
+              <span className="font-black tracking-wide text-slate-900 text-base">
+                BOORAN MOTORS
+              </span>
+              <p className="text-[10px] text-slate-500 font-medium">
+                Trade Client Portal
+              </p>
             </div>
           </div>
 
           {/* Form Header */}
           <div className="mb-8">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-red-600">
-              <span>{mode === "login" ? "Authentication" : "Trade Onboarding"}</span>
+              <span>
+                {mode === "login" ? "Authentication" : "Trade Onboarding"}
+              </span>
               <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
               <span>Phase 1</span>
             </div>
             <h2 className="mt-2 text-2xl xs:text-3xl font-black tracking-tight text-slate-900">
-              {mode === "login" ? "Sign in to workspace" : "Register trade account"}
+              {mode === "login"
+                ? "Sign in to workspace"
+                : "Register trade account"}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
               {mode === "login"
@@ -201,7 +221,10 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
 
           {successNotice && (
             <div className="mb-6 flex items-start gap-3 rounded-xl bg-emerald-50 p-4 border border-emerald-200 text-sm text-emerald-800 animate-fade-in">
-              <CheckCircle2 size={18} className="shrink-0 mt-0.5 text-emerald-600" />
+              <CheckCircle2
+                size={18}
+                className="shrink-0 mt-0.5 text-emerald-600"
+              />
               <div className="flex-1 font-medium">{successNotice}</div>
             </div>
           )}
@@ -215,7 +238,10 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                     Full Name *
                   </label>
                   <div className="relative">
-                    <User size={17} className="absolute left-3.5 top-3.5 text-slate-400" />
+                    <User
+                      size={17}
+                      className="absolute left-3.5 top-3.5 text-slate-400"
+                    />
                     <input
                       required
                       type="text"
@@ -236,9 +262,13 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                     onChange={(e) => setRole(e.target.value)}
                     className="field bg-white"
                   >
-                    <option value="trade_partner">Trade Partner (Workshop / Fleet)</option>
-                    <option value="parts_controller">Parts Controller (Counter Desk)</option>
-                    <option value="group_admin">Group Administrator / Operations</option>
+                    <option value="trade_partner">
+                      Trade Partner (Workshop / Fleet)
+                    </option>
+                    <option value="parts_controller">
+                      Parts Controller (Counter Desk)
+                    </option>
+                    {/* <option value="group_admin">Group Administrator / Operations</option> */}
                   </select>
                 </div>
 
@@ -264,8 +294,12 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                       onChange={(e) => setRooftopId(e.target.value)}
                       className="field bg-white text-xs"
                     >
-                      <option value="ROOFTOP-DANDENONG">Dandenong (Metro)</option>
-                      <option value="ROOFTOP-CHELTENHAM">Cheltenham / Southland</option>
+                      <option value="ROOFTOP-DANDENONG">
+                        Dandenong (Metro)
+                      </option>
+                      <option value="ROOFTOP-CHELTENHAM">
+                        Cheltenham / Southland
+                      </option>
                       <option value="ROOFTOP-CRANBOURNE">Cranbourne</option>
                       <option value="ROOFTOP-BERWICK">Berwick</option>
                       <option value="ROOFTOP-SOUTH-MORANG">South Morang</option>
@@ -283,7 +317,10 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                 Work Email *
               </label>
               <div className="relative">
-                <Mail size={17} className="absolute left-3.5 top-3.5 text-slate-400" />
+                <Mail
+                  size={17}
+                  className="absolute left-3.5 top-3.5 text-slate-400"
+                />
                 <input
                   required
                   type="email"
@@ -304,7 +341,11 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                 {mode === "login" && (
                   <button
                     type="button"
-                    onClick={() => alert("Please contact your Booran parts desk supervisor to reset your account password.")}
+                    onClick={() =>
+                      alert(
+                        "Please contact your Booran parts desk supervisor to reset your account password.",
+                      )
+                    }
                     className="text-xs font-semibold text-red-600 hover:text-red-700 transition"
                   >
                     Forgot?
@@ -312,7 +353,10 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                 )}
               </div>
               <div className="relative">
-                <Lock size={17} className="absolute left-3.5 top-3.5 text-slate-400" />
+                <Lock
+                  size={17}
+                  className="absolute left-3.5 top-3.5 text-slate-400"
+                />
                 <input
                   required
                   type={showPassword ? "text" : "password"}
@@ -320,7 +364,9 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
                   className="field pl-10 pr-10"
-                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
                 />
                 <button
                   type="button"
@@ -339,15 +385,36 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
             >
               {submitting ? (
                 <>
-                  <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  <svg
+                    className="h-4 w-4 animate-spin text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
-                  <span>{mode === "login" ? "Verifying..." : "Creating Account..."}</span>
+                  <span>
+                    {mode === "login" ? "Verifying..." : "Creating Account..."}
+                  </span>
                 </>
               ) : (
                 <>
-                  <span>{mode === "login" ? "Sign in to Order App" : "Complete Registration"}</span>
+                  <span>
+                    {mode === "login"
+                      ? "Sign in to Order App"
+                      : "Complete Registration"}
+                  </span>
                   <ArrowRight size={16} />
                 </>
               )}
