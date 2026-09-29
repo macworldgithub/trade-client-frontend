@@ -1,16 +1,30 @@
-// ─── Roles (simplified: 3 roles) ──────────────────────────────────────
-export type Role = 'trade_partner' | 'controller' | 'admin';
+// Roles
+export type Role =
+  | 'trade_partner'
+  | 'parts_controller'
+  | 'store_manager'
+  | 'group_admin'
+  | 'csuites'
+  | 'controller'
+  | 'admin';
 
 export const ROLES: Record<Role, { label: string; description: string }> = {
-  trade_partner: { label: 'Trade Partner', description: 'Workshop / Fleet — search, order, track' },
-  controller: { label: 'Controller', description: 'Counter staff & store managers — queue, pick, exceptions, store dashboard' },
-  admin: { label: 'Administrator', description: 'Group ops, C-suite, IT — full access, network dashboards, rooftop management' },
+  trade_partner: { label: 'Trade Partner', description: 'Workshop / Fleet - search, order, track' },
+  parts_controller: { label: 'Parts Controller', description: 'Counter staff - queue, pick, exceptions, PartsCheck RFQs' },
+  store_manager: { label: 'Store Manager', description: 'Precinct manager - store dashboard, account controls, RFQs' },
+  group_admin: { label: 'Group Administrator', description: 'Group ops - full access and rooftop management' },
+  csuites: { label: 'C-Suite', description: 'Executive network dashboards and reporting' },
+  controller: { label: 'Controller', description: 'Legacy internal controller alias' },
+  admin: { label: 'Administrator', description: 'Legacy admin alias' },
 };
 
-/** Check helpers */
-export const isInternal = (role?: string) => role === 'controller' || role === 'admin';
-export const isAdmin = (role?: string) => role === 'admin';
-
+export const isTradePartner = (role?: string) => role === 'trade_partner';
+export const isPartsController = (role?: string) =>
+  ['parts_controller', 'store_manager', 'controller'].includes(role || '');
+export const isInternal = (role?: string) =>
+  ['parts_controller', 'store_manager', 'group_admin', 'csuites', 'controller', 'admin'].includes(role || '');
+export const isAdmin = (role?: string) =>
+  ['group_admin', 'csuites', 'admin'].includes(role || '');
 // ─── Auth / User ──────────────────────────────────────────────────────
 export type User = {
   _id?: string;
@@ -444,3 +458,4 @@ export type WeeklyExport = {
   }>;
   orderRows?: Array<Record<string, unknown>>;
 };
+

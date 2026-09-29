@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Search,
   Filter,
@@ -27,13 +27,20 @@ type Props = {
   onRefreshNeeded?: () => void;
 };
 
+type PartsSearchPayload = PartsSearchResponse & { parts?: Part[] };
+
+function normalisePartsResponse(data: PartsSearchPayload | Part[]) {
+  if (Array.isArray(data)) return data;
+  return data.results || data.parts || [];
+}
+
 export default function PartsPage({
   selectedRooftop = "ROOFTOP-DANDENONG",
   onRefreshNeeded,
 }: Props) {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
-  const [franchise, setFranchise] = useState("");
+  const [franchise, setFranchise] = useState("ALL");
   const [vehicle, setVehicle] = useState("");
   const [parts, setParts] = useState<Part[]>([]);
   const [loading, setLoading] = useState(false);
@@ -52,8 +59,31 @@ export default function PartsPage({
   const [partDetail, setPartDetail] = useState<Part | null>(null);
   const [detailLoading, setDetailLoading] = useState<string | null>(null);
 
+  const loadInitialParts = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({
+        limit: "50",
+        franchise: "ALL",
+        rooftopId: selectedRooftop,
+      });
+      const data = await backendApi.parts.search(params.toString());
+      setParts(normalisePartsResponse(data));
+      setSearched(true);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load active parts");
+      setParts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInitialParts();
+  }, [selectedRooftop]);
+
   const runSearch = async () => {
-    if (search.trim().length < 2 && !franchise && !vehicle) return;
     setLoading(true);
     setError("");
     setOrderSuccess(null);
@@ -63,12 +93,12 @@ export default function PartsPage({
         limit: "50",
       });
       if (search.trim()) params.set("q", search.trim());
-      if (franchise) params.set("franchise", franchise);
+      params.set("franchise", franchise || "ALL");
       if (vehicle.trim()) params.set("vehicle", vehicle.trim());
       params.set("rooftopId", selectedRooftop);
 
       const data = await backendApi.parts.search(params.toString());
-      setParts(data.results || []);
+      setParts(normalisePartsResponse(data));
       setSearched(true);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Search failed");
@@ -232,7 +262,7 @@ export default function PartsPage({
                 onChange={(e) => setFranchise(e.target.value)}
                 className="field py-2 text-xs bg-white"
               >
-                <option value="">All Franchises (Booran Network)</option>
+                <option value="ALL">All Franchises (Booran Network)</option>
                 <option value="HYUNDAI">Hyundai</option>
                 <option value="KIA">Kia</option>
                 <option value="MITSUBISHI">Mitsubishi</option>
@@ -355,9 +385,9 @@ export default function PartsPage({
           ) : (
             <div className="py-12 text-center text-slate-400">
               <Search size={32} className="mx-auto mb-2 text-slate-300" />
-              <p className="font-semibold text-slate-600 text-sm">Enter an enquiry to query the catalogue</p>
+              <p className="font-semibold text-slate-600 text-sm">No active catalogue parts loaded</p>
               <p className="text-xs text-slate-400 mt-1">
-                E.g. Search &quot;58101-D3A00&quot; or &quot;26300-35505&quot; to test multi-tier resolution.
+                Search a part number or keyword to query the catalogue directly.
               </p>
             </div>
           )}

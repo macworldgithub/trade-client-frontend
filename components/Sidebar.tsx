@@ -13,7 +13,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
-import { isInternal, isAdmin } from "../lib/types";
+import { isAdmin, isPartsController, isTradePartner } from "../lib/types";
 
 export type NavKey =
   | "overview"
@@ -28,21 +28,30 @@ type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   key: NavKey;
-  /** Which roles can see this item. undefined = everyone */
-  minRole?: "internal" | "admin";
+  visibleFor?: "all" | "partner" | "controller" | "admin" | "controller_admin";
 };
 
 const navItems: NavItem[] = [
-  { label: "Overview", icon: LayoutDashboard, key: "overview" },
-  { label: "Orders & Queue", icon: ShoppingCart, key: "orders" },
-  { label: "Parts Catalogue", icon: PackageSearch, key: "parts" },
-  { label: "PartsCheck RFQs", icon: ClipboardList, key: "partscheck", minRole: "internal" },
-  { label: "Trade Accounts", icon: Users, key: "accounts", minRole: "internal" },
-  { label: "Precincts & Feeds", icon: Building2, key: "precincts", minRole: "admin" },
-  { label: "Audit & Stream", icon: Activity, key: "activity", minRole: "admin" },
+  { label: "Overview", icon: LayoutDashboard, key: "overview", visibleFor: "all" },
+  { label: "Orders & Queue", icon: ShoppingCart, key: "orders", visibleFor: "controller_admin" },
+  { label: "Parts Catalogue", icon: PackageSearch, key: "parts", visibleFor: "partner" },
+  { label: "PartsCheck RFQs", icon: ClipboardList, key: "partscheck", visibleFor: "controller" },
+  { label: "Trade Accounts", icon: Users, key: "accounts", visibleFor: "controller_admin" },
+  { label: "Precincts & Feeds", icon: Building2, key: "precincts", visibleFor: "admin" },
+  { label: "Audit & Stream", icon: Activity, key: "activity", visibleFor: "admin" },
 ];
 
 export { navItems };
+
+function canSeeNavItem(role: string, item: NavItem) {
+  const visibility = item.visibleFor || "all";
+  if (visibility === "all") return true;
+  if (visibility === "partner") return isTradePartner(role);
+  if (visibility === "controller") return isPartsController(role);
+  if (visibility === "admin") return isAdmin(role);
+  if (visibility === "controller_admin") return isPartsController(role) || isAdmin(role);
+  return false;
+}
 
 type Props = {
   activePage: NavKey;
@@ -62,12 +71,7 @@ export default function Sidebar({
   const { user, logout } = useAuth();
   const role = user?.role || "trade_partner";
 
-  const visibleItems = navItems.filter((item) => {
-    if (!item.minRole) return true;
-    if (item.minRole === "internal") return isInternal(role);
-    if (item.minRole === "admin") return isAdmin(role);
-    return false;
-  });
+  const visibleItems = navItems.filter((item) => canSeeNavItem(role, item));
 
   return (
     <>
@@ -199,13 +203,7 @@ export function BottomTabs({ activePage, onNavigate }: BottomTabsProps) {
   const { user } = useAuth();
   const role = user?.role || "trade_partner";
 
-  const visibleItems = navItems.filter((item) => {
-    if (!bottomTabKeys.includes(item.key)) return false;
-    if (!item.minRole) return true;
-    if (item.minRole === "internal") return isInternal(role);
-    if (item.minRole === "admin") return isAdmin(role);
-    return false;
-  });
+  const visibleItems = navItems.filter((item) => bottomTabKeys.includes(item.key) && canSeeNavItem(role, item));
 
   if (!visibleItems.length) return null;
 

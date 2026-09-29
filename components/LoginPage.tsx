@@ -237,8 +237,8 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                     className="field bg-white"
                   >
                     <option value="trade_partner">Trade Partner (Workshop / Fleet)</option>
-                    <option value="controller">Parts Controller (Counter Desk & Store)</option>
-                    <option value="admin">Group Administrator / Operations</option>
+                    <option value="parts_controller">Parts Controller (Counter Desk)</option>
+                    <option value="group_admin">Group Administrator / Operations</option>
                   </select>
                 </div>
 
