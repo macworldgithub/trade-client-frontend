@@ -15,8 +15,9 @@ type AuthContextType = {
   token: string | null;
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<string | null>;
+  login: (email: string, password: string) => Promise<{ error?: string; requiresTotp?: boolean; factorId?: string } | null>;
   register: (input: { email: string; fullName: string; password: string; role?: string; tradeAccountId?: string; rooftopId?: string }) => Promise<string | null>;
+  verifyTotp: (factorId: string, code: string) => Promise<string | null>;
   logout: () => Promise<void>;
 };
 
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => null,
   register: async () => null,
+  verifyTotp: async () => null,
   logout: async () => {},
 });
 
@@ -58,6 +60,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
         auth: false,
       });
+
+      if (result.requiresTotp) {
+        return { requiresTotp: true, factorId: result.factorId };
+      }
+
+      const accessToken = result.accessToken || result.access_token;
+      if (!accessToken) return { error: "The API did not return an access token." };
+
+      localStorage.setItem("trade_access_token", accessToken);
+      if (result.refreshToken) localStorage.setItem("trade_refresh_token", result.refreshToken);
+      setToken(accessToken);
+
+      const me = result.user || (await api<User>("/auth/me"));
+      setUser(me);
+      return null; // null = success
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : "Unable to sign in" };
+    }
+  }, []);
+
+  const verifyTotp = useCallback(async (factorId: string, code: string) => {
+    try {
+      const result = await api<LoginResponse>("/auth/totp/verify", {
+        method: "POST",
+        body: JSON.stringify({ factorId, code }),
+        auth: false,
+      });
+
       const accessToken = result.accessToken || result.access_token;
       if (!accessToken) return "The API did not return an access token.";
 
@@ -69,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me);
       return null; // null = success
     } catch (e) {
-      return e instanceof Error ? e.message : "Unable to sign in";
+      return e instanceof Error ? e.message : "Invalid or expired code";
     }
   }, []);
 
@@ -94,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ token, user, loading, login, register, verifyTotp, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -54,6 +54,8 @@ export type LoginResponse = {
   access_token?: string;
   refreshToken?: string;
   expiresAt?: number;
+  requiresTotp?: boolean;
+  factorId?: string;
   user?: User;
 };
 

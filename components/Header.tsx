@@ -6,11 +6,14 @@ import {
   Menu,
   Store,
   CheckCircle2,
+  ShieldCheck,
+  LogOut,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import type { NavKey } from "./Sidebar";
 import type { Rooftop } from "../lib/types";
 import { ROLES, type Role } from "../lib/types";
+import TotpEnrollModal from "./TotpEnrollModal";
 
 type Props = {
   activePage: NavKey;
@@ -41,9 +44,12 @@ export default function Header({
   onSelectRooftop,
   rooftops = [],
 }: Props) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showRooftopDropdown, setShowRooftopDropdown] = useState(false);
+  const [showTotpModal, setShowTotpModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const displayRooftops = rooftops.length > 0 ? rooftops : DEFAULT_ROOFTOPS;
   const activeRooftop = displayRooftops.find((r) => r.rooftopId === selectedRooftop) || {
@@ -54,18 +60,23 @@ export default function Header({
 
   const roleLabel = ROLES[(user?.role as Role) || "trade_partner"]?.label || user?.role?.replaceAll("_", " ") || "Partner";
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowRooftopDropdown(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setShowDropdown(false);
       }
     }
-    if (showDropdown) document.addEventListener("mousedown", handleClick);
+    document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [showDropdown]);
+  }, []);
 
   return (
+    <>
+    {showTotpModal && <TotpEnrollModal onClose={() => setShowTotpModal(false)} />}
     <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 sm:px-6 lg:px-8 backdrop-blur-md">
       {/* Left: Menu + Rooftop Switcher */}
       <div className="flex items-center gap-3 min-w-0">
@@ -82,7 +93,7 @@ export default function Header({
         {/* Rooftop Selector */}
         <div className="relative" ref={dropdownRef}>
           <button
-            onClick={() => setShowDropdown(!showDropdown)}
+            onClick={() => setShowRooftopDropdown(!showRooftopDropdown)}
             className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-left transition-all text-xs max-w-[220px]"
           >
             <Store size={15} className="text-brand-600 shrink-0" />
@@ -100,8 +111,8 @@ export default function Header({
             />
           </button>
 
-          {/* Dropdown */}
-          {showDropdown && (
+          {/* Rooftop Dropdown */}
+          {showRooftopDropdown && (
             <div className="absolute left-0 mt-2 w-72 rounded-2xl bg-white border border-slate-200 shadow-dropdown py-1.5 z-50 animate-fade-in">
               <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
                 Switch Precinct
@@ -112,7 +123,7 @@ export default function Header({
                     key={r.rooftopId}
                     onClick={() => {
                       if (onSelectRooftop) onSelectRooftop(r.rooftopId);
-                      setShowDropdown(false);
+                      setShowRooftopDropdown(false);
                     }}
                     className={`w-full px-4 py-2.5 text-left text-xs flex items-center justify-between transition-colors ${
                       selectedRooftop === r.rooftopId
@@ -145,21 +156,62 @@ export default function Header({
 
         <div className="h-6 w-px bg-slate-200 hidden sm:block" />
 
-        {/* User Avatar */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white font-bold text-xs shadow-sm">
-            {(user?.fullName || user?.email || "U").slice(0, 1).toUpperCase()}
-          </div>
-          <div className="hidden sm:block text-left">
-            <p className="text-xs font-bold text-slate-900 truncate max-w-[130px]">
-              {user?.fullName || "Trade User"}
-            </p>
-            <p className="text-[10px] font-medium text-slate-400 truncate max-w-[130px]">
-              {roleLabel}
-            </p>
-          </div>
+        {/* User Avatar + Profile Dropdown */}
+        <div className="relative" ref={profileRef}>
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
+            aria-label="User profile menu"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white font-bold text-xs shadow-sm">
+              {(user?.fullName || user?.email || "U").slice(0, 1).toUpperCase()}
+            </div>
+            <div className="hidden sm:block text-left">
+              <p className="text-xs font-bold text-slate-900 truncate max-w-[130px]">
+                {user?.fullName || "Trade User"}
+              </p>
+              <p className="text-[10px] font-medium text-slate-400 truncate max-w-[130px]">
+                {roleLabel}
+              </p>
+            </div>
+            <ChevronDown
+              size={13}
+              className={`text-slate-400 transition-transform duration-200 hidden sm:block ${showDropdown ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {/* Profile Dropdown */}
+          {showDropdown && (
+            <div className="absolute right-0 mt-2 w-60 rounded-2xl bg-white border border-slate-200 shadow-dropdown py-1.5 z-50 animate-fade-in">
+              <div className="px-4 py-3 border-b border-slate-100">
+                <p className="text-sm font-bold text-slate-900 truncate">{user?.fullName || "Trade User"}</p>
+                <p className="text-[11px] text-slate-400 truncate mt-0.5">{user?.email}</p>
+              </div>
+              <div className="py-1">
+                <button
+                  onClick={() => { setShowTotpModal(true); setShowDropdown(false); }}
+                  className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-3 text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <ShieldCheck size={15} className="text-red-500 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Setup 2FA</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Enable authenticator app</p>
+                  </div>
+                </button>
+                <div className="h-px bg-slate-100 mx-3 my-1" />
+                <button
+                  onClick={() => { logout(); setShowDropdown(false); }}
+                  className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-3 text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut size={15} className="shrink-0" />
+                  <span className="font-semibold">Sign Out</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
+    </>
   );
 }
