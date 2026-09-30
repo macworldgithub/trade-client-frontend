@@ -34,12 +34,9 @@ type Props = {
 };
 
 const ROLE_OPTIONS = [
-  { value: "admin", label: "Administrator", color: "bg-red-100 text-red-700 border-red-200" },
   { value: "group_admin", label: "Group Administrator", color: "bg-purple-100 text-purple-700 border-purple-200" },
-  { value: "store_manager", label: "Store Manager", color: "bg-blue-100 text-blue-700 border-blue-200" },
   { value: "parts_controller", label: "Parts Controller", color: "bg-amber-100 text-amber-700 border-amber-200" },
   { value: "trade_partner", label: "Trade Partner", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  { value: "csuites", label: "C-Suite Executive", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
 ];
 
 export default function UsersPage({
