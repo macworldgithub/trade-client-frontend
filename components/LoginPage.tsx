@@ -298,7 +298,7 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
               </>
             )}
 
-            {pendingFactorId ? (
+            {mode === "login" && pendingFactorId ? (
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                   6-Digit Authenticator Code *
@@ -406,7 +406,10 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                   type="button"
                   onClick={() => {
                     setMode("signup");
+                    setPendingFactorId("");
+                    setTotpCode("");
                     setErrorNotice("");
+                    setSuccessNotice("");
                   }}
                   className="font-bold text-red-600 hover:underline"
                 >
@@ -420,7 +423,10 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                   type="button"
                   onClick={() => {
                     setMode("login");
+                    setPendingFactorId("");
+                    setTotpCode("");
                     setErrorNotice("");
+                    setSuccessNotice("");
                   }}
                   className="font-bold text-red-600 hover:underline"
                 > 
