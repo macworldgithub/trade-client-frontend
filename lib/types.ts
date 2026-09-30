@@ -61,17 +61,33 @@ export type LoginResponse = {
 
 // ─── Dashboard ────────────────────────────────────────────────────────
 export type GroupData = {
+  generatedAt?: string;
   networkOverview?: {
     totalRevenueCents?: number;
-    totalOrders?: number;
+    totalSubtotalCents?: number;
     totalGstCents?: number;
+    totalCoreChargeCents?: number;
+    totalOrders?: number;
+    currentYear?: number;
   };
-  fulfillmentPipeline?: Record<string, number>;
+  fulfillmentPipeline?: {
+    submitted?: number;
+    processing?: number;
+    partiallyPicked?: number;
+    picked?: number;
+    readyForDelivery?: number;
+    dispatched?: number;
+    delivered?: number;
+    activeExceptions?: number;
+    cancelled?: number;
+    activeInPipeline?: number;
+  };
   accountsPortfolio?: {
-    activeAccounts?: number;
     totalAccounts?: number;
+    activeAccounts?: number;
     accountsOnCreditHold?: number;
     overdueAccounts?: number;
+    totalOutstandingBalanceCents?: number;
   };
   precinctBreakdown?: PrecinctBreakdownItem[];
   recentActivity?: ActivityEvent[];

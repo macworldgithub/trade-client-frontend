@@ -29,6 +29,7 @@ import type {
   StoreDashboard,
   StorePartsCheckDashboard,
   WeeklyExport,
+  PartsCheckSummary,
 } from "../../lib/types";
 import { money, shortDate } from "../../lib/api";
 import { backendApi } from "../../lib/backend-api";
@@ -57,6 +58,7 @@ export default function OverviewPage({
   const [storePartsCheck, setStorePartsCheck] = useState<StorePartsCheckDashboard | null>(null);
   const [weeklyExport, setWeeklyExport] = useState<WeeklyExport | null>(null);
   const [storeLoading, setStoreLoading] = useState(false);
+  const [groupPartsCheck, setGroupPartsCheck] = useState<PartsCheckSummary | null>(null);
 
   // Export State
   const [exportingCsv, setExportingCsv] = useState(false);
@@ -451,6 +453,48 @@ export default function OverviewPage({
           </div>
         </section>
       </div>
+
+
+      {/* Group PartsCheck Network KPIs */}
+      {groupPartsCheck && (
+        <section className="card p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <p className="eyebrow">Network-Wide</p>
+              <h2 className="text-lg font-bold text-slate-900">PartsCheck Performance</h2>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
+              /dashboard/group/partscheck
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 col-span-1">
+              <p className="eyebrow">Total RFQs</p>
+              <p className="mt-2 text-xl font-black text-slate-900">{groupPartsCheck.kpis?.totalRfqs ?? groupPartsCheck.totalRfqs ?? 0}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 col-span-1">
+              <p className="eyebrow text-emerald-700">Auto-Quote Rate</p>
+              <p className="mt-2 text-xl font-black text-slate-900">{Math.round(groupPartsCheck.kpis?.autoQuoteRatePercent ?? 0)}%</p>
+            </div>
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 col-span-1">
+              <p className="eyebrow text-blue-700">Win Rate</p>
+              <p className="mt-2 text-xl font-black text-slate-900">{Math.round(groupPartsCheck.kpis?.conversionRatePercent ?? groupPartsCheck.conversionRate ?? 0)}%</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 col-span-1">
+              <p className="eyebrow">Accepted Orders</p>
+              <p className="mt-2 text-xl font-black text-slate-900">{groupPartsCheck.kpis?.acceptedCount ?? 0}</p>
+            </div>
+            <div className="rounded-xl border border-amber-100 bg-amber-50 p-4 col-span-1">
+              <p className="eyebrow text-amber-700">Pending Review</p>
+              <p className="mt-2 text-xl font-black text-slate-900">{groupPartsCheck.kpis?.pendingReviewCount ?? groupPartsCheck.pendingReviewCount ?? 0}</p>
+            </div>
+            <div className="rounded-xl border border-red-100 bg-red-50 p-4 col-span-1">
+              <p className="eyebrow text-red-700">SLA Compliance</p>
+              <p className="mt-2 text-xl font-black text-slate-900">{Math.round(groupPartsCheck.kpis?.slaComplianceRatePercent ?? groupPartsCheck.onTimeQuoteRate ?? 100)}%</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ─── Precinct Telemetry & Management Pack Export ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">

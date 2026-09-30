@@ -258,7 +258,7 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                   >
                     <option value="trade_partner">Trade Partner (Workshop / Fleet)</option>
                     <option value="parts_controller">Parts Controller (Counter Desk)</option>
-                    <option value="group_admin">Group Administrator / Operations</option>
+
                   </select>
                 </div>
 

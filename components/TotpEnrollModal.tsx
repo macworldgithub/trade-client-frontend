@@ -194,31 +194,7 @@ export default function TotpEnrollModal({ onClose }: Props) {
                 </div>
               </div>
 
-              {/* Manual secret fallback */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                  Can't scan? Enter manually
-                </p>
-                <div className="flex items-center gap-2">
-                  <KeyRound size={14} className="text-slate-400 shrink-0" />
-                  <span className="font-mono text-xs text-slate-700 break-all flex-1 select-all leading-relaxed">
-                    {secret}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopySecret}
-                    className="shrink-0 p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
-                    title="Copy secret key"
-                  >
-                    {copied ? (
-                      <CheckCircle2 size={14} className="text-emerald-500" />
-                    ) : (
-                      <Copy size={14} className="text-slate-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
+            
               <button
                 onClick={() => setStep("verify")}
                 className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-red-500/20"

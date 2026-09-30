@@ -35,7 +35,7 @@ function AppContent() {
     if (!token) return;
     setDataLoading(true);
     try {
-      const canReadGroupDashboard = ["admin", "csuites", "group_admin", "store_manager"].includes(
+      const canReadGroupDashboard = ["admin", "csuites", "group_admin", "store_manager", "parts_controller", "controller"].includes(
         (user?.role || "").toLowerCase()
       );
       const [gRes, rRes, oRes] = await Promise.allSettled([
