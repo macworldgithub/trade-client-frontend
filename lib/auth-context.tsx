@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const me = result.user || (await api<User>("/auth/me"));
       setUser(me);
-      return null; // null = success
+      return null; 
     } catch (e) {
       return { error: e instanceof Error ? e.message : "Unable to sign in" };
     }
