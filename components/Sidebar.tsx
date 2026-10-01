@@ -14,7 +14,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
-import { isAdmin, isPartsController, isTradePartner } from "../lib/types";
+import { isAdmin, isInternal, isPartsController, isTradePartner } from "../lib/types";
 
 export type NavKey =
   | "overview"
@@ -30,13 +30,13 @@ type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   key: NavKey;
-  visibleFor?: "all" | "partner" | "controller" | "admin" | "controller_admin";
+  visibleFor?: "all" | "partner" | "internal" | "controller" | "admin" | "controller_admin";
 };
 
 const navItems: NavItem[] = [
-  { label: "Overview", icon: LayoutDashboard, key: "overview", visibleFor: "all" },
+  { label: "Overview", icon: LayoutDashboard, key: "overview", visibleFor: "internal" },
+  { label: "Parts Catalogue", icon: PackageSearch, key: "parts", visibleFor: "all" },
   { label: "Orders & Queue", icon: ShoppingCart, key: "orders", visibleFor: "controller_admin" },
-  { label: "Parts Catalogue", icon: PackageSearch, key: "parts", visibleFor: "partner" },
   { label: "PartsCheck RFQs", icon: ClipboardList, key: "partscheck", visibleFor: "controller" },
   { label: "Trade Accounts", icon: Users, key: "accounts", visibleFor: "controller_admin" },
   { label: "Precincts & Feeds", icon: Building2, key: "precincts", visibleFor: "admin" },
@@ -50,6 +50,7 @@ function canSeeNavItem(role: string, item: NavItem) {
   const visibility = item.visibleFor || "all";
   if (visibility === "all") return true;
   if (visibility === "partner") return isTradePartner(role);
+  if (visibility === "internal") return isInternal(role);
   if (visibility === "controller") return isPartsController(role);
   if (visibility === "admin") return isAdmin(role);
   if (visibility === "controller_admin") return isPartsController(role) || isAdmin(role);

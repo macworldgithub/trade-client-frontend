@@ -22,6 +22,7 @@ import {
   X,
   FileText,
 } from "lucide-react";
+import { isInternal } from "../../lib/types";
 import type {
   GroupData,
   Rooftop,
@@ -33,6 +34,7 @@ import type {
 } from "../../lib/types";
 import { money, shortDate } from "../../lib/api";
 import { backendApi } from "../../lib/backend-api";
+import { useAuth } from "../../lib/auth-context";
 import EmptyState from "../ui/EmptyState";
 import type { NavKey } from "../Sidebar";
 
@@ -51,6 +53,10 @@ export default function OverviewPage({
   onPage,
   selectedRooftop = "ROOFTOP-DANDENONG",
 }: Props) {
+  const { user } = useAuth();
+  const role = (user?.role || "").toLowerCase();
+  const canAccessDashboard = isInternal(role);
+
   const n = group?.networkOverview;
   const f = group?.fulfillmentPipeline || {};
   const a = group?.accountsPortfolio;
@@ -109,6 +115,11 @@ export default function OverviewPage({
   useEffect(() => {
     let cancelled = false;
 
+    if (!canAccessDashboard) {
+      setStoreLoading(false);
+      return;
+    }
+
     async function loadStoreDashboard() {
       setStoreLoading(true);
       try {
@@ -143,7 +154,7 @@ export default function OverviewPage({
     return () => {
       cancelled = true;
     };
-  }, [selectedRooftop]);
+  }, [selectedRooftop, canAccessDashboard]);
 
   // Client-side fallback CSV generator for offline / mock resilience
   const generateClientCsvFallback = (scope: "current" | "network") => {

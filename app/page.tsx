@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AuthProvider, useAuth } from "../lib/auth-context";
 import { backendApi } from "../lib/backend-api";
-import { isAdmin, isPartsController, isTradePartner, type GroupData, type Rooftop, type Order } from "../lib/types";
+import { isAdmin, isInternal, isPartsController, isTradePartner, type GroupData, type Rooftop, type Order } from "../lib/types";
 import Sidebar, { BottomTabs, type NavKey } from "../components/Sidebar";
 import Header from "../components/Header";
 import LoginPage from "../components/LoginPage";
@@ -35,7 +35,7 @@ function AppContent() {
     if (!token) return;
     setDataLoading(true);
     try {
-      const canReadGroupDashboard = ["admin", "csuites", "group_admin", "store_manager", "parts_controller", "controller"].includes(
+      const canReadGroupDashboard = ["admin", "csuites", "group_admin", "store_manager"].includes(
         (user?.role || "").toLowerCase()
       );
       const [gRes, rRes, oRes] = await Promise.allSettled([
@@ -68,9 +68,12 @@ function AppContent() {
 
   useEffect(() => {
     const role = (user?.role || "trade_partner").toLowerCase();
-    const allowed: NavKey[] = ["overview"];
+    const allowed: NavKey[] = [];
 
-    if (isTradePartner(role)) allowed.push("parts");
+    if (isInternal(role)) {
+      allowed.push("overview");
+    }
+    allowed.push("parts");
     if (isPartsController(role) || isAdmin(role)) {
       allowed.push("orders", "accounts");
     }
@@ -78,7 +81,7 @@ function AppContent() {
     if (isAdmin(role)) allowed.push("precincts", "users", "activity");
 
     if (!allowed.includes(activePage)) {
-      setActivePage("overview");
+      setActivePage(isInternal(role) ? "overview" : "parts");
     }
   }, [activePage, user?.role]);
 
