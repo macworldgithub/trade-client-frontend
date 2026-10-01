@@ -13,6 +13,7 @@ import type {
   FeedHealth,
   RfqInboxResponse,
   TradeAccount,
+  AccountsResponse,
   User,
   UsersResponse,
   PartsCheckSummary,
@@ -88,7 +89,10 @@ export const backendApi = {
 
   accounts: {
     mine: () => api<TradeAccount>('/accounts/my'),
-    list: () => api<TradeAccount[]>('/accounts'),
+    list: (query = '') =>
+      api<AccountsResponse & { accounts?: TradeAccount[] }>(
+        `/accounts${query ? `?${query}` : ''}`
+      ),
     get: (id: string) => api<TradeAccount>(`/accounts/${encodeURIComponent(id)}`),
     spend: (id: string, year?: number) =>
       api<unknown>(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Search,
   Filter,
@@ -20,6 +20,8 @@ import { backendApi } from "../../lib/backend-api";
 import type { Part, PartsSearchResponse, ResolvePartResponse, PartSource } from "../../lib/types";
 import PageTitle from "../ui/PageTitle";
 import EmptyState from "../ui/EmptyState";
+import Pagination from "../ui/Pagination";
+import Modal from "../ui/Modal";
 import { useAuth } from "../../lib/auth-context";
 
 type Props = {
@@ -47,6 +49,12 @@ export default function PartsPage({
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   // Federated Resolver Modal State
   const [resolvingPart, setResolvingPart] = useState<Part | null>(null);
   const [resolveResult, setResolveResult] = useState<ResolvePartResponse | null>(null);
@@ -59,53 +67,46 @@ export default function PartsPage({
   const [partDetail, setPartDetail] = useState<Part | null>(null);
   const [detailLoading, setDetailLoading] = useState<string | null>(null);
 
-  const loadInitialParts = async () => {
+  const fetchParts = useCallback(async (targetPage = page, targetLimit = limit) => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({
-        limit: "50",
-        franchise: "ALL",
+        page: targetPage.toString(),
+        limit: targetLimit.toString(),
         rooftopId: selectedRooftop,
       });
+      if (search.trim()) params.set("q", search.trim());
+      if (franchise && franchise !== "ALL") params.set("franchise", franchise);
+      if (vehicle.trim()) params.set("vehicle", vehicle.trim());
+
       const data = await backendApi.parts.search(params.toString());
-      setParts(normalisePartsResponse(data));
+      const list = normalisePartsResponse(data);
+      setParts(list);
       setSearched(true);
+
+      const totalItems = data.total ?? (Array.isArray(data) ? data.length : list.length);
+      setTotal(totalItems);
+      setTotalPages(Math.max(1, Math.ceil(totalItems / targetLimit)));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load active parts");
       setParts([]);
+      setTotal(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, franchise, vehicle, selectedRooftop, page, limit]);
 
   useEffect(() => {
-    loadInitialParts();
-  }, [selectedRooftop]);
+    fetchParts(page, limit);
+  }, [page, limit, selectedRooftop]);
 
-  const runSearch = async () => {
-    setLoading(true);
-    setError("");
+  const runSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setPage(1);
     setOrderSuccess(null);
-
-    try {
-      const params = new URLSearchParams({
-        limit: "50",
-      });
-      if (search.trim()) params.set("q", search.trim());
-      params.set("franchise", franchise || "ALL");
-      if (vehicle.trim()) params.set("vehicle", vehicle.trim());
-      params.set("rooftopId", selectedRooftop);
-
-      const data = await backendApi.parts.search(params.toString());
-      setParts(normalisePartsResponse(data));
-      setSearched(true);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Search failed");
-      setParts([]);
-    } finally {
-      setLoading(false);
-    }
+    fetchParts(1, limit);
   };
 
   const handleResolveSource = async (part: Part) => {
@@ -149,28 +150,30 @@ export default function PartsPage({
             unitPriceCents: source.tradePriceCents,
             sourceKind: source.sourceKind,
             sourceName: source.sourceName,
+            sourceRooftopId: source.sourceRooftopId,
+            binLocation: source.binLocation,
+            eta: source.eta,
           },
         ],
       });
-
-      setOrderSuccess(`Order placed successfully for ${partNumber} from ${source.sourceName || source.sourceKind}!`);
+      setOrderSuccess(`Order submitted for ${partNumber} from ${source.sourceName || "Source"}!`);
+      setResolvingPart(null);
       if (onRefreshNeeded) onRefreshNeeded();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to place order line");
+      alert(err instanceof Error ? err.message : "Failed to place quick order");
     } finally {
       setOrderingSource(null);
     }
   };
 
   const handlePartDetail = async (part: Part) => {
-    const id = part._id || part.partNumber || "";
-    if (!id) return;
-    setDetailLoading(id);
+    const partId = part._id || part.partNumber || "";
+    setDetailLoading(partId);
     try {
-      const detail = await backendApi.parts.get(id);
+      const detail = await backendApi.parts.get(partId);
       setPartDetail(detail);
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to load part detail");
+    } catch {
+      setPartDetail(part);
     } finally {
       setDetailLoading(null);
     }
@@ -178,14 +181,14 @@ export default function PartsPage({
 
   const sourceKindBadge = (kind?: string) => {
     switch (kind?.toUpperCase()) {
-      case "OEM":
-        return "bg-blue-50 text-blue-700 border-blue-200";
       case "BRANCH":
         return "bg-purple-50 text-purple-700 border-purple-200";
-      case "AFTERMARKET":
+      case "SISTER":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "OEM":
         return "bg-amber-50 text-amber-700 border-amber-200";
-      case "GREY":
-        return "bg-slate-100 text-slate-700 border-slate-200";
+      case "AFTERMARKET":
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
       default:
         return "bg-slate-100 text-slate-700 border-slate-200";
     }
@@ -193,187 +196,204 @@ export default function PartsPage({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="eyebrow text-red-600">Unified Catalogue</p>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Parts Search &amp; Resolver
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Federated 4-tier waterfall: Own-Branch &rarr; Sister Rooftops &rarr; OEM Portal &rarr; Aftermarket.
-          </p>
-        </div>
-      </div>
+      {/* ─── Header ─── */}
+      <PageTitle
+        eyebrow="Unified Catalogue"
+        title="Parts Search & Resolver"
+        description="Federated 4-tier waterfall: Own-Branch → Sister Rooftops → OEM Portal → Aftermarket."
+      />
 
       {orderSuccess && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-center justify-between animate-fade-in">
+        <div className="p-4 rounded-xl bg-emerald-50 text-emerald-800 text-xs border border-emerald-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
-            <span className="font-semibold">{orderSuccess}</span>
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <span>{orderSuccess}</span>
           </div>
-          <button onClick={() => setOrderSuccess(null)} className="text-emerald-600 hover:underline text-xs">
-            Dismiss
+          <button
+            onClick={() => setOrderSuccess(null)}
+            className="text-emerald-600 hover:text-emerald-800 p-1"
+          >
+            <X size={14} />
           </button>
         </div>
       )}
 
-      {/* ─── SEARCH & FILTER CARD ─── */}
-      <div className="card p-5 sm:p-6">
-        <div className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-3">
+      {/* ─── Search Bar & Filters ─── */}
+      <div className="card p-5 sm:p-6 space-y-4">
+        <form onSubmit={runSearch} className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-3.5 text-slate-400" size={18} />
               <input
+                type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && runSearch()}
-                placeholder="Search OEM Part #, keyword (e.g. 58101-D3A00, Brake Pad, Oil Filter)..."
-                className="field pl-10"
+                placeholder="Search OEM Part #, keyword (e.g. 04152-YZZA6, Brake Pad, Oil Filter)..."
+                className="field pl-10 py-3 text-sm"
               />
             </div>
-
             <button
-              onClick={runSearch}
+              type="submit"
               disabled={loading}
-              className="btn-primary px-6 shadow-md shadow-red-500/20"
+              className="btn-primary py-3 px-6 text-sm flex items-center justify-center gap-2"
             >
-              {loading ? (
-                <div className="flex items-center gap-2">
-                  <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  <span>Searching...</span>
-                </div>
-              ) : (
-                <span>Search Parts</span>
-              )}
+              <Search size={16} />
+              <span>{loading ? "Searching..." : "Search Parts"}</span>
             </button>
           </div>
 
-          {/* Quick Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Franchise Brand
               </label>
               <select
                 value={franchise}
-                onChange={(e) => setFranchise(e.target.value)}
-                className="field py-2 text-xs bg-white"
+                onChange={(e) => {
+                  setFranchise(e.target.value);
+                  setPage(1);
+                }}
+                className="field text-xs py-2 bg-white"
               >
                 <option value="ALL">All Franchises (Booran Network)</option>
-                <option value="HYUNDAI">Hyundai</option>
-                <option value="KIA">Kia</option>
-                <option value="MITSUBISHI">Mitsubishi</option>
-                <option value="NISSAN">Nissan</option>
-                <option value="ISUZU">Isuzu UTE</option>
-                <option value="SKODA">Skoda</option>
-                <option value="CHERY">Chery</option>
-                <option value="MG">MG</option>
-                <option value="BYD">BYD</option>
+                <option value="TOYOTA">Toyota Genuine</option>
+                <option value="HYUNDAI">Hyundai Genuine</option>
+                <option value="NISSAN">Nissan Genuine</option>
+                <option value="HOLDEN">Holden / GM Genuine</option>
+                <option value="MITSUBISHI">Mitsubishi Genuine</option>
+                <option value="KIA">Kia Genuine</option>
+                <option value="SUZUKI">Suzuki Genuine</option>
+                <option value="AFTERMARKET">Aftermarket Suppliers</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Vehicle Fitment
               </label>
               <input
+                type="text"
                 value={vehicle}
                 onChange={(e) => setVehicle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && runSearch()}
-                placeholder="Model e.g. Tucson, D-MAX, Sportage"
-                className="field py-2 text-xs"
+                placeholder="Model (e.g. Corolla, Tucson, Navara)"
+                className="field text-xs py-2"
               />
             </div>
 
-            <div className="sm:col-span-2 md:col-span-1 flex items-end">
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500 w-full flex items-center justify-between">
-                <span>Rooftop Context:</span>
-                <span className="font-bold text-slate-800">{selectedRooftop.replace("ROOFTOP-", "")}</span>
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
+                Unified Sourcing
+              </label>
+              <div className="flex items-center gap-2 h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 font-semibold">
+                <Layers size={14} className="text-slate-400" />
+                <span>4-Tier Federated Waterfall</span>
               </div>
             </div>
           </div>
-        </div>
+        </form>
 
         {error && (
-          <div className="mt-4 p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200 flex items-center gap-2">
+          <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200 flex items-center gap-2">
             <AlertCircle size={15} className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
+      </div>
 
-        {/* ─── PARTS RESULT TABLE ─── */}
-        <div className="mt-6">
+      {/* ─── Search Results Table ─── */}
+      <div className="card overflow-hidden">
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="section-title text-base">Parts Catalogue Results</h2>
+            <p className="text-xs text-slate-500">
+              Listing real-time inventory and active items for {selectedRooftop}
+            </p>
+          </div>
+          <div className="text-xs text-slate-500 font-semibold">
+            {total} part{total === 1 ? "" : "s"} found
+          </div>
+        </div>
+
+        <div className="p-5">
           {loading ? (
-            <div className="space-y-3 py-6">
+            <div className="py-12 space-y-3">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="skeleton h-14 w-full rounded-xl" />
+                <div key={i} className="skeleton h-12 w-full rounded-xl" />
               ))}
             </div>
-          ) : parts.length ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  <tr>
-                    <th className="pb-3">Part Number</th>
-                    <th className="pb-3">Description</th>
-                    <th className="pb-3">Brand</th>
-                    <th className="pb-3 hidden md:table-cell">Vehicle Fitment</th>
-                    <th className="pb-3">Trade Unit</th>
-                    <th className="pb-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {parts.map((p, idx) => (
-                    <tr key={p._id || idx} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 font-black text-slate-900">
-                        {p.partNumber || "—"}
-                      </td>
-                      <td className="py-3.5 text-slate-700 max-w-xs truncate">
-                        <span className="font-semibold block">{p.description || "—"}</span>
-                        {p.category && (
-                          <span className="text-[10px] text-slate-400 uppercase tracking-wider">
-                            {p.category}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5">
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-slate-100 text-slate-700">
-                          {p.brandCode || "GENUINE"}
-                        </span>
-                      </td>
-                      <td className="py-3.5 text-slate-500 hidden md:table-cell text-xs">
-                        {p.vehicleFitment?.join(", ") || p.fitment || "Multi-fitment"}
-                      </td>
-                      <td className="py-3.5 font-bold text-slate-900">
-                        {p.sources?.[0]?.tradePriceCents
-                          ? money(p.sources[0].tradePriceCents)
-                          : "$—"}
-                      </td>
-                      <td className="py-3.5 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => handlePartDetail(p)}
-                            disabled={detailLoading === (p._id || p.partNumber)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 border border-slate-200 transition"
-                          >
-                            {detailLoading === (p._id || p.partNumber) ? "Loading..." : "Detail"}
-                          </button>
-                          <button
-                            onClick={() => handleResolveSource(p)}
-                            className="btn-primary py-1.5 px-3 text-xs shadow-none flex items-center gap-1.5"
-                          >
-                            <Layers size={13} />
-                            <span>Resolve Source</span>
-                          </button>
-                        </div>
-                      </td>
+          ) : parts.length > 0 ? (
+            <div className="space-y-4">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-slate-200 text-slate-400 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="pb-3 font-semibold">Part Number</th>
+                      <th className="pb-3 font-semibold">Description</th>
+                      <th className="pb-3 font-semibold">Brand</th>
+                      <th className="pb-3 font-semibold">Fitment</th>
+                      <th className="pb-3 font-semibold">Trade Net</th>
+                      <th className="pb-3 text-right font-semibold">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {parts.map((p) => (
+                      <tr key={p._id || p.partNumber} className="hover:bg-slate-50/60 transition">
+                        <td className="py-3.5 font-black text-slate-900 font-mono">
+                          {p.partNumber}
+                        </td>
+                        <td className="py-3.5 text-slate-600 max-w-xs truncate">
+                          {p.description}
+                        </td>
+                        <td className="py-3.5">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                            {p.brandCode || "OEM"}
+                          </span>
+                        </td>
+                        <td className="py-3.5 text-slate-500">
+                          {p.vehicleFitment?.join(", ") || p.fitment || "Universal / Multiple"}
+                        </td>
+                        <td className="py-3.5 font-bold text-slate-900">
+                          {p.sources?.[0]?.tradePriceCents
+                            ? money(p.sources[0].tradePriceCents)
+                            : "$—"}
+                        </td>
+                        <td className="py-3.5 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handlePartDetail(p)}
+                              disabled={detailLoading === (p._id || p.partNumber)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 border border-slate-200 transition"
+                            >
+                              {detailLoading === (p._id || p.partNumber) ? "Loading..." : "Detail"}
+                            </button>
+                            <button
+                              onClick={() => handleResolveSource(p)}
+                              className="btn-primary py-1.5 px-3 text-xs shadow-none flex items-center gap-1.5"
+                            >
+                              <Layers size={13} />
+                              <span>Resolve Source</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ─── Pagination ─── */}
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={total}
+                pageSize={limit}
+                onPageChange={(newPage) => setPage(newPage)}
+                onPageSizeChange={(newSize) => {
+                  setLimit(newSize);
+                  setPage(1);
+                }}
+                loading={loading}
+              />
             </div>
           ) : searched ? (
             <div className="py-12">
@@ -395,139 +415,126 @@ export default function PartsPage({
       </div>
 
       {/* ─── FEDERATED SOURCE RESOLUTION MODAL (Scope Section 5.4) ─── */}
-      {resolvingPart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-black text-slate-900">
-                    {resolvingPart.partNumber}
-                  </h3>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-black bg-slate-100 text-slate-700">
-                    {resolvingPart.brandCode || "OEM"}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  {resolvingPart.description} · Requesting Rooftop: <b>{selectedRooftop}</b>
-                </p>
-              </div>
-              <button
-                onClick={() => setResolvingPart(null)}
-                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
-              >
-                <X size={18} />
-              </button>
+      <Modal
+        isOpen={!!resolvingPart}
+        onClose={() => setResolvingPart(null)}
+        maxWidth="3xl"
+        title={
+          resolvingPart ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-black text-slate-900 tracking-tight">
+                {resolvingPart.partNumber}
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-slate-100 text-slate-700">
+                {resolvingPart.brandCode || "OEM"}
+              </span>
+            </div>
+          ) : undefined
+        }
+        subtitle={
+          resolvingPart ? (
+            <span>
+              {resolvingPart.description} · Requesting Rooftop: <b className="text-slate-800">{selectedRooftop}</b>
+            </span>
+          ) : undefined
+        }
+      >
+        {resolvingLoading ? (
+          <div className="py-12 text-center space-y-3">
+            <div className="mx-auto w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs font-semibold text-slate-600">
+              Resolving 4-tier waterfall across Booran dealerships &amp; OEM feeds...
+            </p>
+          </div>
+        ) : resolveError ? (
+          <div className="p-4 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
+            {resolveError}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
+              <span>Sourcing Algorithm Priority:</span>
+              <span className="font-semibold text-slate-800">
+                1. Own Branch &rarr; 2. Sister Branches &rarr; 3. OEM Portals &rarr; 4. Aftermarket
+              </span>
             </div>
 
-            {resolvingLoading ? (
-              <div className="py-12 text-center space-y-3">
-                <div className="mx-auto w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                <p className="text-xs font-semibold text-slate-600">
-                  Resolving 4-tier waterfall across Booran dealerships &amp; OEM feeds...
-                </p>
-              </div>
-            ) : resolveError ? (
-              <div className="my-6 p-4 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
-                {resolveError}
+            {resolveResult?.sources?.length ? (
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="p-3">Source &amp; Kind</th>
+                      <th className="p-3">List</th>
+                      <th className="p-3">Trade Net</th>
+                      <th className="p-3">On-Hand</th>
+                      <th className="p-3">ETA / Run</th>
+                      <th className="p-3 text-right">Order</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {resolveResult.sources.map((s, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50">
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${sourceKindBadge(s.sourceKind)}`}>
+                              {s.sourceKind || "OEM"}
+                            </span>
+                            <span className="font-bold text-slate-900">{s.sourceName}</span>
+                          </div>
+                          {s.binLocation && (
+                            <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                              Bin: {s.binLocation}
+                            </p>
+                          )}
+                        </td>
+                        <td className="p-3 text-slate-400">{money(s.listPriceCents)}</td>
+                        <td className="p-3 font-black text-slate-900">
+                          {money(s.tradePriceCents)}
+                        </td>
+                        <td className="p-3">
+                          <span className={`font-bold ${((s.stockQty ?? 0) > 0) ? "text-emerald-600" : "text-slate-400"}`}>
+                            {s.stockQty ?? 0} units
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600 font-medium">
+                          {s.eta || "Same-day counter"}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            disabled={orderingSource !== null}
+                            onClick={() => resolvingPart && handleQuickOrder(resolvingPart.partNumber || "", s)}
+                            className="btn-primary py-1 px-3 text-xs shadow-none"
+                          >
+                            {orderingSource === (s.sourceName || s.sourceKind) ? "Submitting..." : "Add to Order"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
-              <div className="mt-4 space-y-4">
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
-                  <span>Sourcing Algorithm Priority:</span>
-                  <span className="font-semibold text-slate-800">
-                    1. Own Branch &rarr; 2. Sister Branches &rarr; 3. OEM Portals &rarr; 4. Aftermarket
-                  </span>
-                </div>
-
-                {resolveResult?.sources?.length ? (
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
-                        <tr>
-                          <th className="p-3">Source &amp; Kind</th>
-                          <th className="p-3">List</th>
-                          <th className="p-3">Trade Net</th>
-                          <th className="p-3">On-Hand</th>
-                          <th className="p-3">ETA / Run</th>
-                          <th className="p-3 text-right">Order</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {resolveResult.sources.map((s, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/50">
-                            <td className="p-3">
-                              <div className="flex items-center gap-2">
-                                <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${sourceKindBadge(s.sourceKind)}`}>
-                                  {s.sourceKind || "OEM"}
-                                </span>
-                                <span className="font-bold text-slate-900">{s.sourceName}</span>
-                              </div>
-                              {s.binLocation && (
-                                <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                                  Bin: {s.binLocation}
-                                </p>
-                              )}
-                            </td>
-                            <td className="p-3 text-slate-400">{money(s.listPriceCents)}</td>
-                            <td className="p-3 font-black text-slate-900">
-                              {money(s.tradePriceCents)}
-                            </td>
-                            <td className="p-3">
-                              <span className={`font-bold ${((s.stockQty ?? 0) > 0) ? "text-emerald-600" : "text-slate-400"}`}>
-                                {s.stockQty ?? 0} units
-                              </span>
-                            </td>
-                            <td className="p-3 text-slate-600 font-medium">
-                              {s.eta || "Same-day counter"}
-                            </td>
-                            <td className="p-3 text-right">
-                              <button
-                                disabled={orderingSource !== null}
-                                onClick={() => handleQuickOrder(resolvingPart.partNumber || "", s)}
-                                className="btn-primary py-1 px-3 text-xs shadow-none"
-                              >
-                                {orderingSource === (s.sourceName || s.sourceKind) ? "Submitting..." : "Add to Order"}
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <EmptyState
-                    title="No source rows returned"
-                    text="The resolver could not find active inventory or OEM feeds for this part."
-                  />
-                )}
-              </div>
+              <EmptyState
+                title="No source rows returned"
+                text="The resolver could not find active inventory or OEM feeds for this part."
+              />
             )}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
-      {partDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-xl font-black text-slate-900">
-                  {partDetail.partNumber}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  {partDetail.description || "Catalogue part detail"}
-                </p>
-              </div>
-              <button
-                onClick={() => setPartDetail(null)}
-                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* ─── PART DETAIL MODAL ─── */}
+      <Modal
+        isOpen={!!partDetail}
+        onClose={() => setPartDetail(null)}
+        maxWidth="2xl"
+        title={partDetail?.partNumber}
+        subtitle={partDetail?.description || "Catalogue part detail"}
+      >
+        {partDetail && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="eyebrow">Brand</p>
                 <p className="mt-1 font-black text-slate-900">{partDetail.brandCode || "GENUINE"}</p>
@@ -542,13 +549,13 @@ export default function PartsPage({
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
               <p className="font-bold text-slate-900 mb-1">Vehicle Fitment</p>
               <p>{partDetail.vehicleFitment?.join(", ") || partDetail.fitment || "No fitment detail returned."}</p>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

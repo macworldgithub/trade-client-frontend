@@ -82,13 +82,13 @@ export default function Header({
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onToggleSidebar}
-          className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          className="lg:hidden rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
           aria-label="Toggle sidebar navigation"
         >
           <Menu size={20} />
         </button>
 
-        <div className="h-6 w-px bg-slate-200 hidden xs:block" />
+        <div className="h-6 w-px bg-slate-200 lg:hidden hidden xs:block" />
 
         {/* Rooftop Selector */}
         <div className="relative" ref={dropdownRef}>

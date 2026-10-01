@@ -262,6 +262,15 @@ export type TradeAccount = {
   paymentTerms?: string;
 };
 
+export type AccountsResponse = {
+  total?: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
+  accounts?: TradeAccount[];
+  results?: TradeAccount[];
+};
+
 export type AccountSpend = {
   accountId?: string;
   companyName?: string;
@@ -369,6 +378,8 @@ export type Rfq = {
     model?: string;
     year?: number;
   };
+  rego?: string;
+  vin?: string;
 };
 
 export type RfqInboxResponse = {

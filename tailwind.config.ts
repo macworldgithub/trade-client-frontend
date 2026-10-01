@@ -66,12 +66,12 @@ const config: Config = {
       },
       keyframes: {
         fadeIn: {
-          from: { opacity: "0", transform: "translateY(6px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
+          from: { opacity: "0" },
+          to: { opacity: "1" },
         },
         slideUp: {
-          from: { opacity: "0", transform: "translateY(12px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
+          from: { opacity: "0", transform: "translateY(10px) scale(0.98)" },
+          to: { opacity: "1", transform: "translateY(0) scale(1)" },
         },
         pulseSlow: {
           "0%, 100%": { opacity: "1", transform: "scale(1)" },
