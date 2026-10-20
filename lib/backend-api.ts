@@ -37,9 +37,9 @@ export const backendApi = {
       tradeAccountId?: string;
       rooftopId?: string;
     }) =>
-      api<{ message: string; userId: string }>('/auth/register', {
+      api<{ message: string; userId: string }>('/auth/users', {
         method: 'POST',
-        auth: false,
+        auth: true,
         body: JSON.stringify({
           ...input,
           email: input.email.trim().toLowerCase(),
@@ -50,18 +50,29 @@ export const backendApi = {
 
     logout: () => api<{ message: string }>('/auth/logout', { method: 'POST' }),
 
-    refresh: (refreshToken: string) =>
+    refresh: () =>
       api<LoginResponse>('/auth/refresh', {
         method: 'POST',
         auth: false,
-        body: JSON.stringify({ refreshToken }),
       }),
 
-    enrollTotp: () =>
+    totpStatus: () => api<{ enabled: boolean; recoveryCodesRemaining: number }>('/auth/totp/status'),
+
+    enrollTotp: (password: string) =>
       api<{ factorId: string; qrCode: string; secret: string }>(
         '/auth/totp/enroll',
-        { method: 'POST' }
+        { method: 'POST', body: JSON.stringify({ password }) }
       ),
+
+    confirmTotp: (factorId: string, code: string) =>
+      api<{ user: User; recoveryCodes: string[] }>('/auth/totp/confirm', {
+        method: 'POST', body: JSON.stringify({ factorId, code }),
+      }),
+
+    disableTotp: (password: string, code: string) =>
+      api<{ user: User; message: string }>('/auth/totp/disable', {
+        method: 'POST', body: JSON.stringify({ password, code }),
+      }),
 
     verifyTotp: (factorId: string, code: string) =>
       api<LoginResponse>('/auth/totp/verify', {

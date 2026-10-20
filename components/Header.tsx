@@ -46,6 +46,7 @@ export default function Header({
 }: Props) {
   const { user, logout } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [showRooftopDropdown, setShowRooftopDropdown] = useState(false);
   const [showTotpModal, setShowTotpModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -194,18 +195,23 @@ export default function Header({
                 >
                   <ShieldCheck size={15} className="text-red-500 shrink-0" />
                   <div>
-                    <p className="font-semibold">Setup 2FA</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Enable authenticator app</p>
+                    <p className="font-semibold">Manage 2FA</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Authenticator and recovery codes</p>
                   </div>
                 </button>
                 <div className="h-px bg-slate-100 mx-3 my-1" />
                 <button
-                  onClick={() => { logout(); setShowDropdown(false); }}
+                  onClick={async () => {
+                    setLogoutError("");
+                    try { await logout(); setShowDropdown(false); }
+                    catch { setLogoutError("Unable to sign out. Please retry."); }
+                  }}
                   className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-3 text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <LogOut size={15} className="shrink-0" />
                   <span className="font-semibold">Sign Out</span>
                 </button>
+                {logoutError && <p role="alert" className="px-4 py-2 text-xs text-red-700">{logoutError}</p>}
               </div>
             </div>
           )}

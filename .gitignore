@@ -9,6 +9,8 @@
 
 # next.js
 /.next/
+/.next-proxy-test/
+/.next-backup-*/
 /out/
 
 # production

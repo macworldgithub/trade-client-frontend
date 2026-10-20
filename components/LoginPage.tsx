@@ -39,11 +39,9 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [totpCode, setTotpCode] = useState("");
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [pendingFactorId, setPendingFactorId] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState("trade_partner");
-  const [tradeAccountId, setTradeAccountId] = useState("");
-  const [rooftopId, setRooftopId] = useState("ROOFTOP-DANDENONG");
 
   const [submitting, setSubmitting] = useState(false);
   const [errorNotice, setErrorNotice] = useState(externalNotice || "");
@@ -74,16 +72,13 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
           email: email.trim().toLowerCase(),
           fullName: fullName.trim(),
           password,
-          role,
-          tradeAccountId: tradeAccountId.trim() || undefined,
-          rooftopId: rooftopId || undefined,
         });
 
         if (err) {
           setErrorNotice(err);
         } else {
           setSuccessNotice(
-            "Account registered successfully! Please check your email to verify your address, then sign in."
+            "Account registered successfully! Check your email to verify your account before signing in."
           );
           setMode("login");
         }
@@ -247,74 +242,34 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Account Role
-                  </label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className="field bg-white"
-                  >
-                    <option value="trade_partner">Trade Partner (Workshop / Fleet)</option>
-                    <option value="parts_controller">Parts Controller (Counter Desk)</option>
-
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                      Pentana A/C ID
-                    </label>
-                    <input
-                      type="text"
-                      value={tradeAccountId}
-                      onChange={(e) => setTradeAccountId(e.target.value)}
-                      placeholder="ACC-000123"
-                      className="field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                      Home Precinct
-                    </label>
-                    <select
-                      value={rooftopId}
-                      onChange={(e) => setRooftopId(e.target.value)}
-                      className="field bg-white text-xs"
-                    >
-                      <option value="ROOFTOP-DANDENONG">Dandenong (Metro)</option>
-                      <option value="ROOFTOP-CHELTENHAM">Cheltenham / Southland</option>
-                      <option value="ROOFTOP-CRANBOURNE">Cranbourne</option>
-                      <option value="ROOFTOP-BERWICK">Berwick</option>
-                      <option value="ROOFTOP-SOUTH-MORANG">South Morang</option>
-                      <option value="ROOFTOP-WONTHAGGI">Wonthaggi</option>
-                      <option value="ROOFTOP-LEONGATHA">Leongatha</option>
-                      <option value="ROOFTOP-BALLARAT">Ballarat</option>
-                    </select>
-                  </div>
-                </div>
+                <p className="text-xs text-slate-500">Register as a Trade Partner. An administrator will assign your trade account and precinct. Use a password of at least 12 characters.</p>
               </>
             )}
 
             {mode === "login" && pendingFactorId ? (
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  6-Digit Authenticator Code *
+                  {useRecoveryCode ? "Recovery code" : "6-digit authenticator code"} *
                 </label>
                 <div className="relative">
                   <ShieldCheck size={17} className="absolute left-3.5 top-3.5 text-slate-400" />
                   <input
                     required
                     type="text"
-                    maxLength={6}
+                    maxLength={useRecoveryCode ? 23 : 6}
+                    inputMode={useRecoveryCode ? "text" : "numeric"}
                     value={totpCode}
-                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                    placeholder="123456"
+                    onChange={(e) => setTotpCode(useRecoveryCode ? e.target.value.replace(/[^a-fA-F0-9-]/g, "") : e.target.value.replace(/\D/g, ""))}
+                    placeholder={useRecoveryCode ? "xxxxx-xxxxx-xxxxx-xxxxx" : "123456"}
                     className="field pl-10 tracking-widest font-mono text-lg"
                     autoComplete="one-time-code"
                   />
+                </div>
+                <div className="mt-3 flex justify-between text-xs text-red-600">
+                  <button type="button" onClick={() => { setUseRecoveryCode(!useRecoveryCode); setTotpCode(""); setErrorNotice(""); }}>
+                    {useRecoveryCode ? "Use authenticator app" : "Use a recovery code"}
+                  </button>
+                  <button type="button" onClick={() => { setPendingFactorId(""); setTotpCode(""); setErrorNotice(""); setSuccessNotice(""); }}>Start sign-in again</button>
                 </div>
               </div>
             ) : (
@@ -342,15 +297,6 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
                       Password *
                     </label>
-                    {mode === "login" && (
-                      <button
-                        type="button"
-                        onClick={() => alert("Please contact your Booran parts desk supervisor to reset your account password.")}
-                        className="text-xs font-semibold text-red-600 hover:text-red-700 transition"
-                      >
-                        Forgot?
-                      </button>
-                    )}
                   </div>
                   <div className="relative">
                     <Lock size={17} className="absolute left-3.5 top-3.5 text-slate-400" />
@@ -396,6 +342,9 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
               )}
             </button>
           </form>
+          {mode === "login" && <div className="mt-4 text-center text-sm text-red-600">
+            <a href="/auth/recover-account">Set up or recover your account</a>
+          </div>}
 
           {/* Toggle Login / Register */}
           <div className="mt-6 pt-6 border-t border-slate-100 text-center">
@@ -429,7 +378,7 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                     setSuccessNotice("");
                   }}
                   className="font-bold text-red-600 hover:underline"
-                > 
+                >
                   Sign in
                 </button>
               </p>

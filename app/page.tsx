@@ -19,7 +19,7 @@ import UsersPage from "../components/pages/UsersPage";
 import ActivityLogPage from "../components/pages/ActivityLogPage";
 
 function AppContent() {
-  const { user, token, loading: authLoading, login, register } = useAuth();
+  const { user, authenticated, loading: authLoading, login, register } = useAuth();
   const [activePage, setActivePage] = useState<NavKey>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedRooftop, setSelectedRooftop] = useState("ROOFTOP-DANDENONG");
@@ -32,7 +32,7 @@ function AppContent() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const loadGlobalData = useCallback(async () => {
-    if (!token) return;
+    if (!authenticated) return;
     setDataLoading(true);
     try {
       const canReadGroupDashboard = ["admin", "csuites", "group_admin", "store_manager"].includes(
@@ -60,7 +60,7 @@ function AppContent() {
     } finally {
       setDataLoading(false);
     }
-  }, [token, user]);
+  }, [authenticated, user]);
 
   useEffect(() => {
     loadGlobalData();
@@ -101,7 +101,7 @@ function AppContent() {
     );
   }
 
-  if (!token) {
+  if (!authenticated) {
     return <LoginPage onLogin={login} onRegister={register} />;
   }
 

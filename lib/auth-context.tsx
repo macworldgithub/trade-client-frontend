@@ -12,7 +12,7 @@ import { api } from "./api";
 import type { User, LoginResponse } from "./types";
 
 type AuthContextType = {
-  token: string | null;
+  authenticated: boolean;
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ error?: string; requiresTotp?: boolean; factorId?: string } | null>;
@@ -22,7 +22,7 @@ type AuthContextType = {
 };
 
 const AuthContext = createContext<AuthContextType>({
-  token: null,
+  authenticated: false,
   user: null,
   loading: true,
   login: async () => null,
@@ -32,25 +32,18 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Bootstrap: check for existing token in localStorage
   useEffect(() => {
-    const existing = localStorage.getItem("trade_access_token");
-    if (existing) {
-      setToken(existing);
-      api<User>("/auth/me")
-        .then(setUser)
-        .catch(() => {
-          localStorage.removeItem("trade_access_token");
-          setToken(null);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    // Remove credentials left by the previous bearer-token implementation.
+    localStorage.removeItem("trade_access_token");
+    localStorage.removeItem("trade_refresh_token");
+    api<User>("/auth/me")
+      .then(me => { setUser(me); setAuthenticated(true); })
+      .catch(() => { setUser(null); setAuthenticated(false); })
+      .finally(() => setLoading(false));
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -62,18 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (result.requiresTotp) {
+        setUser(null);
+        setAuthenticated(false);
         return { requiresTotp: true, factorId: result.factorId };
       }
 
-      const accessToken = result.accessToken || result.access_token;
-      if (!accessToken) return { error: "The API did not return an access token." };
-
-      localStorage.setItem("trade_access_token", accessToken);
-      if (result.refreshToken) localStorage.setItem("trade_refresh_token", result.refreshToken);
-      setToken(accessToken);
-
       const me = result.user || (await api<User>("/auth/me"));
       setUser(me);
+      setAuthenticated(true);
       return null; 
     } catch (e) {
       return { error: e instanceof Error ? e.message : "Unable to sign in" };
@@ -88,15 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         auth: false,
       });
 
-      const accessToken = result.accessToken || result.access_token;
-      if (!accessToken) return "The API did not return an access token.";
-
-      localStorage.setItem("trade_access_token", accessToken);
-      if (result.refreshToken) localStorage.setItem("trade_refresh_token", result.refreshToken);
-      setToken(accessToken);
-
       const me = result.user || (await api<User>("/auth/me"));
       setUser(me);
+      setAuthenticated(true);
       return null; // null = success
     } catch (e) {
       return e instanceof Error ? e.message : "Invalid or expired code";
@@ -113,18 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    try {
-      await api("/auth/logout", { method: "POST" });
-    } catch {
-      // ignore
-    }
-    localStorage.removeItem("trade_access_token");
-    setToken(null);
+    await api("/auth/logout", { method: "POST" });
+    setAuthenticated(false);
     setUser(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, user, loading, login, register, verifyTotp, logout }}>
+    <AuthContext.Provider value={{ authenticated, user, loading, login, register, verifyTotp, logout }}>
       {children}
     </AuthContext.Provider>
   );

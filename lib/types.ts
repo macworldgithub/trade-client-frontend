@@ -37,6 +37,7 @@ export type User = {
   creditHold?: boolean;
   isOverdue?: boolean;
   isActive?: boolean;
+  totpEnabled?: boolean;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -50,9 +51,6 @@ export type UsersResponse = {
 };
 
 export type LoginResponse = {
-  accessToken?: string;
-  access_token?: string;
-  refreshToken?: string;
   expiresAt?: number;
   requiresTotp?: boolean;
   factorId?: string;
