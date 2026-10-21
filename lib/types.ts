@@ -244,20 +244,65 @@ export type ResolvePartResponse = {
 // ─── Accounts ─────────────────────────────────────────────────────────
 export type TradeAccount = {
   _id?: string;
+  id?: string;
   accountId?: string;
   companyName?: string;
+  legalName?: string;
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
+  businessPhone?: string;
+  mobilePhone?: string;
+  businessEmail?: string;
+  statementEmail?: string;
+  homeEmail?: string;
+  abn?: string;
   homeRooftopId?: string;
+  rooftopId?: string;
   currentBalanceCents?: number;
   creditLimitCents?: number;
+  creditAvailableCents?: number;
+  aged30DaysCents?: number;
+  aged60DaysCents?: number;
+  aged90DaysCents?: number;
+  aged120DaysCents?: number;
+  agedBalanceTotalCents?: number;
   creditHold?: boolean;
   isOverdue?: boolean;
   discountRate?: number;
+  discountPercent?: number;
   ytdSpendCents?: number;
   ytdOrderCount?: number;
   paymentTerms?: string;
+  purchasePriorYearCents?: number;
+  averageDaysToPay?: number;
+  lastPurchaseDate?: string;
+  lastPaymentDate?: string;
+  financialYearLabel?: string;
+  partsSalesFinancialYearCents?: number;
+  partsTransactionsFinancialYear?: number;
+  partsSaleTypeCode?: string;
+  partsSaleTypeLabel?: string;
+  priceLevelCode?: string;
+  priceLevelLabel?: string;
+  paymentMethodCode?: string;
+  paymentMethodLabel?: string;
+  creditTypeCode?: string;
+  creditTypeLabel?: string;
+  creditCode?: string;
+  creditCodeLabel?: string;
+  creditComments?: string;
+  purchaseOrderRequired?: boolean;
+  billToEntityId?: string;
+  territoryLabel?: string;
+  warningNotes?: string[];
+  isVerifiedPentana?: boolean;
+  sourceEntityCode?: string;
+  identifierType?: string;
+  sourceScreens?: string;
+  lastSyncedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type AccountsResponse = {
@@ -277,9 +322,72 @@ export type AccountSpend = {
   ytdOrderCount?: number;
   creditLimitCents?: number;
   currentBalanceCents?: number;
+  creditAvailableCents?: number;
   discountPercent?: number;
   creditHold?: boolean;
   isOverdue?: boolean;
+  priceLevelLabel?: string;
+  aged30DaysCents?: number;
+  aged60DaysCents?: number;
+  aged90DaysCents?: number;
+  aged120DaysCents?: number;
+  partsSalesFinancialYearCents?: number;
+  partsTransactionsFinancialYear?: number;
+  purchasePriorYearCents?: number;
+  averageDaysToPay?: number;
+  lastPurchaseDate?: string | null;
+  lastPaymentDate?: string | null;
+  warningNotes?: string[];
+  abn?: string | null;
+};
+
+export type PentanaEntity = {
+  _id?: string;
+  entityId: string;
+  sourceEntityCode?: string;
+  entityName: string;
+  businessName?: string;
+  contactName?: string;
+  firstName?: string;
+  lastName?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  suburb?: string;
+  postcode?: string;
+  state?: string;
+  businessEmail?: string;
+  homeEmail?: string;
+  businessPhone?: string;
+  mobilePhone?: string;
+  abn?: string;
+  acn?: string;
+  entityTypeRaw?: string;
+  customerTypeDetailRaw?: string;
+  detailCaptureStatus?: string;
+  isTradeAccount?: boolean;
+  linkedAccountId?: string;
+  capturedAt?: string;
+};
+
+export type PentanaPriceLevel = {
+  source_entity_code?: string;
+  price_level_code: string;
+  source_label: string;
+  source_screen?: string;
+  discount_percent?: string;
+  rule_formula_verified?: boolean;
+};
+
+export type PentanaStatus = {
+  schema_version?: string;
+  source_entity_code?: string;
+  status?: string;
+  search_query?: string;
+  search_rows?: number;
+  related_account_rows?: number;
+  price_level_reference_rows?: number;
+  warning_notes?: number;
+  checks?: Record<string, string>;
 };
 
 // ─── PartsCheck ───────────────────────────────────────────────────────
