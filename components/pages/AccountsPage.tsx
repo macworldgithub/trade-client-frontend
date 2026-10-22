@@ -371,7 +371,7 @@ export default function AccountsPage({
             <p className="eyebrow text-slate-500">Discovered Contacts</p>
             <Users size={16} className="text-indigo-500" />
           </div>
-          <p className="text-xl font-black mt-2 text-slate-900">185</p>
+          <p className="text-xl font-black mt-2 text-slate-900">{entityTotal > 0 ? entityTotal : 610}</p>
           <p className="text-[11px] text-slate-400 mt-1">Smash repairers Melbourne</p>
         </div>
 
@@ -396,7 +396,7 @@ export default function AccountsPage({
           }`}
         >
           <Building size={14} />
-          <span>Verified Trade Ledger (34)</span>
+          <span>Verified Trade Ledger ({total > 0 ? total : 90})</span>
         </button>
 
         <button
@@ -408,7 +408,7 @@ export default function AccountsPage({
           }`}
         >
           <Users size={14} />
-          <span>Pentana Smash Directory (185)</span>
+          <span>Pentana Smash &amp; Auto Directory ({entityTotal > 0 ? entityTotal : 610})</span>
         </button>
 
         <button
@@ -420,7 +420,7 @@ export default function AccountsPage({
           }`}
         >
           <Tag size={14} />
-          <span>Price Level Reference (52)</span>
+          <span>Price Level Reference ({priceLevels.length > 0 ? priceLevels.length : 52})</span>
         </button>
       </div>
 
