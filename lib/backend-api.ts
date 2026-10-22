@@ -119,6 +119,30 @@ export const backendApi = {
         method: 'PATCH',
         body: JSON.stringify({ isOverdue: value }),
       }),
+    syncPentana: () =>
+      api<{
+        tradeAccountsSynced: number;
+        entitiesSynced: number;
+        pricingRulesLoaded: number;
+        warningsLoaded: number;
+        priceLevelsLoaded: number;
+        partsSynced: number;
+        syncedAt: string;
+        status: string;
+        notes: string;
+      }>('/accounts/pentana/sync', { method: 'POST' }),
+    pentanaEntities: (query = '') =>
+      api<{
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+        entities: import('./types').PentanaEntity[];
+      }>(`/accounts/pentana/entities${query ? `?${query}` : ''}`),
+    pentanaPriceLevels: () =>
+      api<import('./types').PentanaPriceLevel[]>('/accounts/pentana/price-levels'),
+    pentanaStatus: () =>
+      api<import('./types').PentanaStatus>('/accounts/pentana/status'),
   },
 
   parts: {
