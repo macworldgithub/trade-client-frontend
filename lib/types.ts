@@ -51,11 +51,18 @@ export type UsersResponse = {
 };
 
 export type LoginResponse = {
+  requiresEmailOtp?: boolean;
+  challengeId?: string;
+  expiresIn?: number;
+  resendAfter?: number;
   expiresAt?: number;
   requiresTotp?: boolean;
   factorId?: string;
   user?: User;
 };
+
+export type AuthStep = { error?: string; requiresTotp?: boolean; factorId?: string;
+  requiresEmailOtp?: boolean; challengeId?: string; resendAfter?: number };
 
 // ─── Dashboard ────────────────────────────────────────────────────────
 export type GroupData = {

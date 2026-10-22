@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../lib/api";
+import type { AuthStep, LoginResponse } from "../lib/types";
 import {
   ArrowRight,
   AlertCircle,
@@ -20,7 +22,7 @@ import {
 import { useAuth } from "../lib/auth-context";
 
 type Props = {
-  onLogin: (email: string, password: string) => Promise<{ error?: string; requiresTotp?: boolean; factorId?: string } | null>;
+  onLogin: (email: string, password: string) => Promise<AuthStep | null>;
   onRegister: (input: {
     email: string;
     fullName: string;
@@ -28,12 +30,20 @@ type Props = {
     role?: string;
     tradeAccountId?: string;
     rooftopId?: string;
-  }) => Promise<string | null>;
+  }) => Promise<AuthStep | null>;
   notice?: string;
 };
 
 export default function LoginPage({ onLogin, onRegister, notice: externalNotice }: Props) {
-  const { verifyTotp } = useAuth();
+  const { verifyTotp, verifyEmailOtp } = useAuth();
+  const [emailChallenge, setEmailChallenge] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [resendSeconds, setResendSeconds] = useState(0);
+  useEffect(() => {
+    if (!resendSeconds) return;
+    const timer = setTimeout(() => setResendSeconds(s => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendSeconds]);
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,6 +57,28 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
   const [errorNotice, setErrorNotice] = useState(externalNotice || "");
   const [successNotice, setSuccessNotice] = useState("");
 
+  function acceptStep(result: AuthStep | null) {
+    if (result?.error) { setErrorNotice(result.error); return; }
+    if (result?.requiresEmailOtp && result.challengeId) {
+      setEmailChallenge(result.challengeId); setEmailCode(""); setPassword("");
+      setMode("login"); setResendSeconds(result.resendAfter ?? 60);
+      setSuccessNotice(`We sent a 6-digit code to ${email.trim()}. It expires in 10 minutes.`);
+    } else if (result?.requiresTotp && result.factorId) {
+      setEmailChallenge(""); setEmailCode(""); setPendingFactorId(result.factorId);
+      setPassword(""); setSuccessNotice("Please enter the 6-digit code from your authenticator app.");
+    }
+  }
+
+  async function resendEmailCode() {
+    setSubmitting(true); setErrorNotice(""); setSuccessNotice("");
+    try {
+      acceptStep(await api<LoginResponse>("/auth/email-otp/resend", {
+        method: "POST", auth: false, body: JSON.stringify({ challengeId: emailChallenge }),
+      }));
+    } catch (e) { setErrorNotice(e instanceof Error ? e.message : "Unable to resend code"); }
+    finally { setSubmitting(false); }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorNotice("");
@@ -54,34 +86,24 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
     setSubmitting(true);
 
     try {
-      if (mode === "login") {
+      if (emailChallenge) {
+        acceptStep(await verifyEmailOtp(emailChallenge, emailCode));
+      } else if (mode === "login") {
         if (pendingFactorId) {
           const err = await verifyTotp(pendingFactorId, totpCode);
           if (err) setErrorNotice(err);
         } else {
           const result = await onLogin(email.trim().toLowerCase(), password);
-          if (result && result.error) {
-            setErrorNotice(result.error);
-          } else if (result && result.requiresTotp && result.factorId) {
-            setPendingFactorId(result.factorId);
-            setSuccessNotice("Please enter the 6-digit code from your authenticator app.");
-          }
+          acceptStep(result);
         }
       } else {
-        const err = await onRegister({
+        const result = await onRegister({
           email: email.trim().toLowerCase(),
           fullName: fullName.trim(),
           password,
         });
 
-        if (err) {
-          setErrorNotice(err);
-        } else {
-          setSuccessNotice(
-            "Account registered successfully! Check your email to verify your account before signing in."
-          );
-          setMode("login");
-        }
+        acceptStep(result);
       }
     } catch (err: unknown) {
       setErrorNotice(err instanceof Error ? err.message : "An unexpected error occurred");
@@ -191,14 +213,14 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
               <span>Phase 1</span>
             </div>
             <h2 className="mt-2 text-2xl xs:text-3xl font-black tracking-tight text-slate-900">
-              {mode === "login"
+              {emailChallenge ? "Enter your email code" : mode === "login"
                 ? pendingFactorId
                   ? "Two-Factor Authentication"
                   : "Sign in to workspace"
                 : "Register trade account"}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              {mode === "login"
+              {emailChallenge ? "Enter the 6-digit code sent to your email address." : mode === "login"
                 ? pendingFactorId
                   ? "Enter the 6-digit code generated by your authenticator app."
                   : "Enter your credentials to access parts ordering & counter queues."
@@ -246,7 +268,21 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
               </>
             )}
 
-            {mode === "login" && pendingFactorId ? (
+            {emailChallenge ? (
+              <div>
+                <label htmlFor="email-otp" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">6-digit email code *</label>
+                <input id="email-otp" required autoFocus type="text" inputMode="numeric" autoComplete="one-time-code"
+                  pattern="[0-9]{6}" maxLength={6} value={emailCode}
+                  onChange={e => setEmailCode(e.target.value.replace(/\D/g, ""))}
+                  className="field tracking-widest font-mono text-lg" />
+                <div className="mt-3 flex justify-between text-xs text-red-600">
+                  <button type="button" disabled={submitting || resendSeconds > 0} onClick={resendEmailCode}>
+                    {resendSeconds ? `Resend code in ${resendSeconds}s` : "Resend code"}
+                  </button>
+                  <button type="button" disabled={submitting} onClick={() => { setEmailChallenge(""); setEmailCode(""); setErrorNotice(""); setSuccessNotice(""); }}>Start sign-in again</button>
+                </div>
+              </div>
+            ) : mode === "login" && pendingFactorId ? (
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                   {useRecoveryCode ? "Recovery code" : "6-digit authenticator code"} *
@@ -336,7 +372,7 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                 </>
               ) : (
                 <>
-                  <span>{mode === "login" ? pendingFactorId ? "Verify Code" : "Sign in to Order App" : "Complete Registration"}</span>
+                  <span>{emailChallenge ? "Verify code and continue" : mode === "login" ? pendingFactorId ? "Verify Code" : "Sign in to Order App" : "Complete Registration"}</span>
                   <ArrowRight size={16} />
                 </>
               )}
@@ -355,6 +391,7 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                   type="button"
                   onClick={() => {
                     setMode("signup");
+                    setEmailChallenge(""); setEmailCode(""); setPassword("");
                     setPendingFactorId("");
                     setTotpCode("");
                     setErrorNotice("");
@@ -372,6 +409,7 @@ export default function LoginPage({ onLogin, onRegister, notice: externalNotice 
                   type="button"
                   onClick={() => {
                     setMode("login");
+                    setEmailChallenge(""); setEmailCode(""); setPassword("");
                     setPendingFactorId("");
                     setTotpCode("");
                     setErrorNotice("");

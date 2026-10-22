@@ -9,14 +9,15 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "./api";
-import type { User, LoginResponse } from "./types";
+import type { User, LoginResponse, AuthStep } from "./types";
 
 type AuthContextType = {
   authenticated: boolean;
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ error?: string; requiresTotp?: boolean; factorId?: string } | null>;
-  register: (input: { email: string; fullName: string; password: string; role?: string; tradeAccountId?: string; rooftopId?: string }) => Promise<string | null>;
+  login: (email: string, password: string) => Promise<AuthStep | null>;
+  register: (input: { email: string; fullName: string; password: string; role?: string; tradeAccountId?: string; rooftopId?: string }) => Promise<AuthStep | null>;
+  verifyEmailOtp: (challengeId: string, code: string) => Promise<AuthStep | null>;
   verifyTotp: (factorId: string, code: string) => Promise<string | null>;
   logout: () => Promise<void>;
 };
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => null,
   register: async () => null,
+  verifyEmailOtp: async () => null,
   verifyTotp: async () => null,
   logout: async () => {},
 });
@@ -54,10 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         auth: false,
       });
 
-      if (result.requiresTotp) {
+      if (result.requiresTotp || result.requiresEmailOtp) {
         setUser(null);
         setAuthenticated(false);
-        return { requiresTotp: true, factorId: result.factorId };
+        return result;
       }
 
       const me = result.user || (await api<User>("/auth/me"));
@@ -67,6 +69,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       return { error: e instanceof Error ? e.message : "Unable to sign in" };
     }
+  }, []);
+
+  const verifyEmailOtp = useCallback(async (challengeId: string, code: string) => {
+    try {
+      const result = await api<LoginResponse>("/auth/email-otp/verify", {
+        method: "POST", auth: false, body: JSON.stringify({ challengeId, code }),
+      });
+      if (result.requiresTotp) return result;
+      const me = result.user || await api<User>("/auth/me");
+      setUser(me); setAuthenticated(true);
+      return null;
+    } catch (e) { return { error: e instanceof Error ? e.message : "Unable to verify code" }; }
   }, []);
 
   const verifyTotp = useCallback(async (factorId: string, code: string) => {
@@ -88,10 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (input: { email: string; fullName: string; password: string; role?: string; tradeAccountId?: string; rooftopId?: string }) => {
     try {
-      await api("/auth/register", { method: "POST", auth: false, body: JSON.stringify({ ...input, email: input.email.trim().toLowerCase() }) });
-      return null;
+      return await api<LoginResponse>("/auth/register", { method: "POST", auth: false, body: JSON.stringify({ ...input, email: input.email.trim().toLowerCase() }) });
     } catch (e) {
-      return e instanceof Error ? e.message : "Unable to create account";
+      return { error: e instanceof Error ? e.message : "Unable to create account" };
     }
   }, []);
 
@@ -102,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ authenticated, user, loading, login, register, verifyTotp, logout }}>
+    <AuthContext.Provider value={{ authenticated, user, loading, login, register, verifyEmailOtp, verifyTotp, logout }}>
       {children}
     </AuthContext.Provider>
   );
